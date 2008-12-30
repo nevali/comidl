@@ -1,0 +1,24 @@
+@(#) $Id$
+
+This is what will eventually become the IDL compiler for libcom. It borrows
+some grammar rules from the original DCE/RPC IDL compiler (which was
+subsequently modified by PADL and Novell), but is otherwise a fresh
+implementation.
+
+At present, comidl simply parses IDL files into an internal set of structures
+and writes C/C++ headers for defined interfaces--there's no stub generation
+yet, but all of the information needed to write the stub generation code
+should be represented correctly in the internal structures.
+
+If you're looking for example code because you want to write some kind of
+parser or compiler for a C-like language, this isn't a good place to start;
+the code here is by no means a shining example of 'how to effectively use
+flex and bison'.
+
+The most important factor is that comidl can generate the correct output
+for libcom's own IDL. Microsoft's IDL compiler (midl), WINE's IDL compiler
+(widl) and plenty of others will likely do a much better job on real-world
+IDL. Note also that comidl has no pretence about adhering to the DCE/RPC spec;
+this is a COM IDL compiler, not a DCE/RPC IDL compiler: although COM is
+theoretically backwards-compatible with DCE/RPC in most respects, there are
+specific dependencies (albeit minor ones) on libcom in the generated output.
