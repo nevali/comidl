@@ -90,12 +90,16 @@
 #  define YYSTYPE char *
 # endif
 
-static void read_c_comment(void);
+struct yyguts_t;
+
+static void read_c_comment(struct yyguts_t * yyg, void *scanner);
 
 %}
 
 %option noyywrap
 %option yylineno
+%option reentrant
+%option bison-bridge
 
 delim           [ \t\n\f]
 opt_ws          {delim}*
@@ -161,68 +165,68 @@ other           .
 	{
 		yymore(); /* Allow backslashed " within strings, look for next " */
 	}
-	input();
+	input(yyscanner);
 	yytext++;
-	yylval = yytext;
+	*yylval = yytext;
 	return STRING;
 }
 
-"/*"    { read_c_comment(); }
+"/*"    { read_c_comment(yyg, yyscanner); }
 
 {uuid}			{
-	yylval = yytext;
+	*yylval = yytext;
 	return(UUID);
 }
 
 {id}			{
-	yylval = yytext;
+	*yylval = yytext;
 	return idl_keyword_lookup(yytext);
 }
 
 {c_hex_integer}	{
-	yylval = yytext;
+	*yylval = yytext;
 	return INTEGER_NUMERIC;
 }
 
 {integer}	{
-	yylval = yytext;
+	*yylval = yytext;
 	return INTEGER_NUMERIC;
 }
 
 {float}			{
-	yylval = yytext;
+	*yylval = yytext;
 	return FLOAT_NUMERIC;
 }
 
 {other}			{
-	idl_module_error(curmod, yylineno, "Parse error near '%s'", yytext);
+	idl_module_error(curmod, yyget_lineno(yyscanner), "Parse error near '%s'", yytext);
 }
 
 %%
 
 static void
-commenteof(void)
+commenteof(struct yyguts_t * yyg, void *yyscanner)
 {
-	idl_module_error(curmod, yylineno, "Unexpected end of file while parsing C-style comment");
+	idl_module_error(curmod, yyget_lineno(yyscanner), "Unexpected end of file while parsing C-style comment");
 }
 
 static void
-read_c_comment(void)
+read_c_comment(struct yyguts_t * yyg, void *yyscanner)
 {
     register int c;
 
     /* While not EOF look for end of comment */
-    while ((c = input()))
+    while ((c = input(yyscanner)))
     {
         if (c == '*')
         {
-            if ((c = input()) == '/')
+            if ((c = input(yyscanner)) == '/')
                 break ;
             else
-                unput(c) ;
+                unput(c);
         }
     }
 
     /* Didn't find end comment before EOF, issue error */
-    if (c == 0) commenteof();
+    if (c == 0) commenteof(yyg, yyscanner);
 }

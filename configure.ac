@@ -57,7 +57,9 @@ AC_SUBST([IDL_CPPFLAGS])
 AC_SUBST([IDL_CC])
 AC_SUBST([IDL_CPP])
 
-AC_DEFINE([IDL_CPP], [$IDL_CPP], [C preprocessor command])
+AC_DEFINE_UNQUOTED([IDL_CPP], ["${IDL_CPP}"], [C preprocessor command])
+
+AC_CHECK_FUNCS([getopt])
 
 AC_CHECK_HEADERS([stdlib.h stdint.h unistd.h inttypes.h unistd.h stdarg.h])
 

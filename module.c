@@ -36,6 +36,9 @@
 
 #include "p_comidl.h"
 
+static idl_module_t **modules;
+static size_t nmodules;
+
 void
 idl_module_vmsg(idl_module_t *module, int line, const char *prefix, const char *fmt, va_list ap)
 {
@@ -79,7 +82,7 @@ idl_module_warning(idl_module_t *module, int line, const char *fmt, ...)
 idl_module_t *
 idl_module_create(const char *filename, const char *hout)
 {
-	idl_module_t *p;
+	idl_module_t *p, **q;
 	const char *t;
 	char *s;
 	
@@ -87,6 +90,11 @@ idl_module_create(const char *filename, const char *hout)
 	{
 		return NULL;
 	}
+	if(NULL == (q = (idl_module_t **) realloc(modules, sizeof(idl_module_t *) * (nmodules + 1))))
+	{
+		return NULL;
+	}
+	modules = q;
 	p->filename = strdup(filename);
 	if(NULL != hout)
 	{
@@ -131,8 +139,25 @@ idl_module_create(const char *filename, const char *hout)
 			p->shortname = strdup(t);
 		}
 	}
+	modules[nmodules] = p;
+	nmodules++;
 	idl_emit_init(p);
 	return p;
+}
+
+idl_module_t *
+idl_module_lookup(const char *pathname)
+{
+	size_t c;
+	
+	for(c = 0; c < nmodules; c++)
+	{
+		if(!strcmp(modules[c]->filename, pathname))
+		{
+			return modules[c];
+		}
+	}
+	return NULL;
 }
 
 int
@@ -303,23 +328,66 @@ idl_module_symdef_link(idl_module_t *module, idl_symlist_t *symlist, idl_symdef_
 }
 
 idl_symdef_t *
-idl_module_symdef_lookup(idl_module_t *module, idl_symlist_t *start, const char *name)
+idl_module_symdef_lookup(idl_module_t *module, idl_symlist_t *start, const char *name, int recurse)
 {
 	size_t c;
-
+	idl_symdef_t *p;
+	
 	(void) module;
 	
-	while(start)
+	if(NULL != start)
 	{
-		for(c = 0; c < start->ndefs; c++)
+		if(recurse)
 		{
-			if(0 == strcmp(start->defs[c]->ident, name))
+			fprintf(stderr, "--- Searching for %s ---\n", name);
+		}
+		while(start)
+		{
+			for(c = 0; c < start->ndefs; c++)
 			{
-				return start->defs[c];
+				if(0 == strcmp(start->defs[c]->ident, name))
+				{
+					return start->defs[c];
+				}
+			}
+			start = start->parent;
+		}
+		if(recurse)
+		{
+			return idl_module_symdef_lookup(module, NULL, name, 1);
+		}
+		return NULL;
+	}
+	if(NULL != module)
+	{
+		/* We've searched the default scope chain, try the blocks in the current
+		 * module.
+		 */
+		for(c = 0; c < module->ninterfaces; c++)
+		{
+			fprintf(stderr, "Searching %s in %s\n", module->interfaces[c]->name, module->filename);
+			if(NULL != (p = idl_module_symdef_lookup(module, &(module->interfaces[c]->symlist), name, 0)))
+			{
+				return p;
 			}
 		}
-		start = start->parent;
+		if(recurse)
+		{
+			return idl_module_symdef_lookup(NULL, NULL, name, 1);
+		}
+		return NULL;
 	}
+	/* Try all of the blocks in all of the modules */
+	fprintf(stderr, "nmodules is %u\n", (unsigned) nmodules);
+	for(c = 0; c < nmodules; c++)
+	{
+		fprintf(stderr, "Searching %s\n", modules[c]->filename);
+		if(NULL != (p = idl_module_symdef_lookup(modules[c], NULL, name, 0)))
+		{
+			return p;
+		}
+	}
+	
 	return NULL;
 }
 

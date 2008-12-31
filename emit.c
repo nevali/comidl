@@ -83,7 +83,7 @@ idl_emit_cxxinc_write_header(idl_module_t *module)
 	fprintf(module->hout, "/* Automatically generated from %s by %s */\n\n", module->shortname, progname);
 	fprintf(module->hout, "#ifndef %s\n", module->hmacro);
 	fprintf(module->hout, "# define %s\n", module->hmacro);
-	if(0 == module->nostdinc)
+	if(0 == nodefinc && 0 == module->nodefinc)
 	{
 		fprintf(module->hout, "\n# include \"DCE-RPC/idlbase.h\"\n");
 	}
@@ -92,8 +92,10 @@ idl_emit_cxxinc_write_header(idl_module_t *module)
 		"extern \"C\" {\n"
 		"# endif\n\n"
 		);
-	if(0 == module->nostdinc)
+	if(0 == nodefinc && 0 == module->nodefinc &&
+		0 == nodefimports && 0 == module->nodefimports)
 	{
+		/* This corresponds to the default import of nbase.idl */
 		fprintf(module->hout, "# include \"DCE-RPC/nbase.h\"\n\n");
 	}
 }

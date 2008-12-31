@@ -39,6 +39,12 @@
 const char *progname = "comidl";
 idl_module_t *curmod;
 
+/* Global options */
+
+int nostdinc = 0;
+int nodefimports = 0;
+int nodefinc = 0;
+
 static void
 usage(void)
 {
@@ -69,22 +75,58 @@ version(void)
 }
 
 int
-idl_parse(const char *src, const char *hout)
+idl_parse(const char *src, const char *hout, int defimp, int useinc)
 {
 	FILE *f;
+	char fpath[PATH_MAX + 1];
 	idl_module_t *lastmod;
+	void *scanner;
 	
-	if(NULL == (f = fopen(src, "rb")))
+	if(0 == useinc || src[0] == '/')
 	{
-		fprintf(stderr, "%s: %s: %s\n", progname, src, strerror(errno));
+		if(strlen(src) > PATH_MAX)
+		{
+			fprintf(stderr, "%s: %s: path too long\n", progname, src);
+			return -1;
+		}
+		strcpy(fpath, src);
+	}
+	else
+	{
+		if(-1 == idl_incpath_locate(fpath, sizeof(fpath), src))
+		{
+			fprintf(stderr, "%s: %s: %s\n", progname, src, strerror(ENOENT));
+			return -1;
+		}
+	}
+	if(NULL == (f = fopen(fpath, "rb")))
+	{
+		fprintf(stderr, "%s: %s: %s\n", progname, fpath, strerror(errno));
 		return -1;
 	}
+	if(1 == defimp && 0 == nodefimports)
+	{
+		if(-1 == idl_parse("nbase.idl", NULL, 0, 1))
+		{
+			fclose(f);
+			return -1;
+		}
+	}
+	fprintf(stderr, "scanning '%s'\n", fpath);
+	if(NULL != idl_module_lookup(fpath))
+	{
+		fprintf(stderr, "%s has already been imported\n", fpath);
+		return 0;
+	}
 	lastmod = curmod;
-	curmod = idl_module_create(src, hout);
-	yyrestart(f);
-	yyparse();
+	curmod = idl_module_create(fpath, hout);
+	curmod->scanner = scanner;
+	yylex_init(&scanner);
+	yyrestart(f, scanner);
+	yyparse(scanner);
 	fclose(f);
 	idl_module_done(curmod);
+	curmod->scanner = NULL;
 	curmod = lastmod;
 	return 0;
 }
@@ -109,13 +151,19 @@ main(int argc, char **argv)
 	srcfile = NULL;
 	intfheader = NULL;
 	defaults = 1;
-	while((c = getopt(argc, argv, "H:F:n:W:hv")) != -1)
+	while((c = getopt(argc, argv, "H:I:F:n:W:hv")) != -1)
 	{
 		switch(c)
 		{
 			case 'H':
 				intfheader = optarg;
 				defaults = 0;
+				break;
+			case 'I':
+				idl_incpath_add_includedir(optarg);
+				break;
+			case 'F':
+				idl_incpath_add_frameworkdir(optarg);
 				break;
 			case 'h':
 				usage();
@@ -171,7 +219,7 @@ main(int argc, char **argv)
 		intfheader = ih;
 	}
 	curmod = NULL;
-	if(-1 == idl_parse(srcfile, intfheader))
+	if(-1 == idl_parse(srcfile, intfheader, 1, 0))
 	{
 		exit(EXIT_FAILURE);
 	}

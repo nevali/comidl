@@ -90,14 +90,14 @@ idl_intf_started(idl_interface_t *intf)
 	{
 		if(0 == hasuuid)
 		{
-			idl_module_error(intf->module, yylineno, "The uuid() attribute is required for the definition of %s", intf->name);
+			idl_module_error(intf->module, yyget_lineno(intf->module->scanner), "The uuid() attribute is required for the definition of %s", intf->name);
 		}
 	}
 	else if(0 == needuuid)
 	{
 		if(1 == hasuuid)
 		{
-			idl_module_warning(intf->module, yylineno, "The uuid() attribute should not be specified for the definition of %s", intf->name);
+			idl_module_warning(intf->module, yyget_lineno(intf->module->scanner), "The uuid() attribute should not be specified for the definition of %s", intf->name);
 		}
 	}
 	if(0 != hasuuid)
@@ -210,7 +210,7 @@ idl_intf_symdef_link(idl_interface_t *intf, idl_symdef_t *symdef)
 idl_symdef_t *
 idl_intf_symdef_lookup(idl_interface_t *intf, const char *name)
 {
-	return idl_module_symdef_lookup(intf->module, intf->cursymlist, name);
+	return idl_module_symdef_lookup(intf->module, intf->cursymlist, name, 1);
 }
 
 int

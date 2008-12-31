@@ -89,14 +89,22 @@
 static char vertmp[64];
 
 void
-yyerror(char *s)
+yyerror(void *scanner, char *s)
 {
-	idl_module_error(curmod, yylineno, "%s", s);
+	idl_module_error(curmod, yyget_lineno(scanner), "%s", s);
 }
 
 %}
 
-/* Keywords                 */
+/* Options */
+
+%start module
+%pure-parser
+%lex-param { void *scanner }
+%parse-param { void *scanner }
+%error-verbose
+
+/* Keywords */
 %token ALIGN_KW
 %token ARRAY_KW
 %token ASTRING_KW
@@ -258,8 +266,6 @@ yyerror(char *s)
 %token INTEGER_NUMERIC
 %token FLOAT_NUMERIC
 
-%start module
-
 %%
 
 module:
@@ -286,12 +292,21 @@ interface:
 	;
 
 interface_start:
-		interface_attributes INTERFACE_KW IDENTIFIER
+		interface_attributes INTERFACE_KW identifier
 		{
 			curmod->curintf->type = BLOCK_INTERFACE;
 			idl_intf_name(curmod->curintf, $3);
 			idl_intf_started(curmod->curintf);
 		}
+	;
+	
+/* Include some attribute names here, too, as they can be used unambiguously
+ * as identifiers.
+ */
+
+identifier:
+		IDENTIFIER { $$ = $1; }
+	|	UUID_KW { $$ = $1; }
 	;
 
 interface_ancestor:
@@ -299,7 +314,7 @@ interface_ancestor:
 		{
 			idl_intf_write_prolog(curmod->curintf);
 		}
-		| COLON IDENTIFIER
+		| COLON identifier
 		{
 			fprintf(stderr, "interface inherits from %s\n", $2);
 			/* XXX look up ancestor */
@@ -438,7 +453,7 @@ port_spec:
     ;
 
 excep_spec:
-        IDENTIFIER
+        identifier
         {
         }
     ;
@@ -483,7 +498,7 @@ import_files:
 import_file:
         STRING
         {
-			fprintf(stderr, "Performing import of %s\n", $1);
+			idl_parse($1, NULL, 0, 1);
         }
     ;
 
@@ -570,6 +585,20 @@ const_value:
 			
 			curmod->cursym->constval = strtol($1, &dummy, 0);
 		}
+	|	IDENTIFIER
+		{
+			idl_symdef_t *p;
+			
+			if(NULL == (p = idl_intf_symdef_lookup(curmod->curintf, $1)))
+			{
+				idl_module_error(curmod, yyget_lineno(scanner), "undeclared identifier '%s' in constant expression", $1);
+			}
+			if(p->type != SYM_CONST)
+			{
+				idl_module_error(curmod, yyget_lineno(scanner), "identifier '%s' in constant expression is not a constant", $1);
+			}
+			curmod->cursym->constval = p->constval;
+		}
 	
 method_decl:
 		method_attributes type_decl method_init LPAREN fp_args_init possible_arg_list RPAREN SEMI
@@ -600,7 +629,7 @@ method_attr:
 	
 	
 method_init: 
-		IDENTIFIER
+		identifier
 		{
 			curmod->cursymlist->symtype = SYM_METHOD;
 			idl_intf_symdef_create(curmod->curintf, curmod->curtype);
@@ -629,7 +658,7 @@ pointer_ident_decl:
 		{
 			if(0 != curmod->cursym->is_fp)
 			{
-				idl_module_error(curmod, yylineno, "Symbol '%s' was declared as a function pointer but no arguments have been specified", curmod->cursym->ident);
+				idl_module_error(curmod, yyget_lineno(scanner), "Symbol '%s' was declared as a function pointer but no arguments have been specified", curmod->cursym->ident);
 			}
 			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
 		}
@@ -645,7 +674,7 @@ pointer_ident_decl_list:
 		{
 			if(0 != curmod->cursym->is_fp)
 			{
-				idl_module_error(curmod, yylineno, "[symdef_init declarator] Symbol '%s' was declared as a function pointer but no arguments have been specified", curmod->cursym->ident);
+				idl_module_error(curmod, yyget_lineno(scanner), "[symdef_init declarator] Symbol '%s' was declared as a function pointer but no arguments have been specified", curmod->cursym->ident);
 			}
 			curmod->curintf->firstsym = curmod->cursym;
 			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
@@ -658,14 +687,14 @@ pointer_ident_decl_list:
 		{
 			if(0 != curmod->cursym->is_fp)
 			{
-				idl_module_error(curmod, yylineno, "Symbol '%s' was declared as a function pointer but no arguments have been specified", curmod->cursym->ident);
+				idl_module_error(curmod, yyget_lineno(scanner), "Symbol '%s' was declared as a function pointer but no arguments have been specified", curmod->cursym->ident);
 			}
 			idl_intf_symdef_link(curmod->curintf, curmod->cursym);
 			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
 		}
 	|	error
 		{
-			fprintf(stderr, "Parse error on line %d while parsing pointer_ident_decl_list\n", yylineno);
+			fprintf(stderr, "Parse error on line %d while parsing pointer_ident_decl_list\n", yyget_lineno(scanner));
 		}
 	;
 	
@@ -679,7 +708,7 @@ declarator:
 	;
 
 simple_declarator:
-		IDENTIFIER
+		identifier
 		{
 			strncpy(curmod->cursym->ident, $1, IDL_IDENT_MAX);
 			curmod->cursym->ident[IDL_IDENT_MAX] = 0;
@@ -735,7 +764,7 @@ fp_args_init:
 			fp = curmod->cursym;
 			if(0 == curmod->cursym->is_fp && SYM_METHOD != curmod->cursym->type)
 			{
-				idl_module_error(curmod, yylineno, "Cannot declare arguments for non-function-pointer symbol '%s'", curmod->cursym->ident);
+				idl_module_error(curmod, yyget_lineno(scanner), "Cannot declare arguments for non-function-pointer symbol '%s'", curmod->cursym->ident);
 			}
 			fp->fp_params.symtype = SYM_PARAM;
 			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
@@ -750,7 +779,7 @@ fp_args_init_first:
 			fp = curmod->cursym;
 			if(0 == curmod->cursym->is_fp)
 			{
-				idl_module_error(curmod, yylineno, "Cannot declare arguments for non-function-pointer symbol '%s'", curmod->cursym->ident);
+				idl_module_error(curmod, yyget_lineno(scanner), "Cannot declare arguments for non-function-pointer symbol '%s'", curmod->cursym->ident);
 			}
 			curmod->curintf->firstsym = curmod->cursym;
 			fp->fp_params.symtype = SYM_PARAM;
@@ -766,7 +795,7 @@ fp_args_init_link:
 			fp = curmod->cursym;
 			if(0 == curmod->cursym->is_fp)
 			{
-				idl_module_error(curmod, yylineno, "Cannot declare arguments for non-function-pointer symbol '%s'", curmod->cursym->ident);
+				idl_module_error(curmod, yyget_lineno(scanner), "Cannot declare arguments for non-function-pointer symbol '%s'", curmod->cursym->ident);
 			}
 			fp->fp_params.symtype = SYM_PARAM;
 			idl_intf_symdef_link(curmod->curintf, curmod->cursym);
@@ -828,13 +857,13 @@ type_attr_list:
 
 type_attr:
 		STRING_KW
-	|	WIRE_MARSHAL_KW LPAREN IDENTIFIER RPAREN
+	|	WIRE_MARSHAL_KW LPAREN identifier RPAREN
 	|	SIZE_IS_KW LPAREN expression RPAREN
 	|	RANGE_KW LPAREN expression COMMA expression RPAREN
 	|	PTR_KW
 	|	UNIQUE_KW
 	|	REF_KW
-	|	IID_IS_KW LPAREN IDENTIFIER RPAREN
+	|	IID_IS_KW LPAREN identifier RPAREN
 	|	IN_KW
 	|	OUT_KW
 	|	V1_STRUCT_KW
@@ -915,7 +944,7 @@ type:
 			curmod->curtype->builtin_type = TYPE_INT8;
 			if(0 != (curmod->curtype->modifiers & (TYPEMOD_SIGNED|TYPEMOD_UNSIGNED)))
 			{
-				idl_module_warning(curmod, yylineno, "'%s' types are always unsigned\n", $1);
+				idl_module_warning(curmod, yyget_lineno(scanner), "'%s' types are always unsigned\n", $1);
 			}
 			curmod->curtype->modifiers &= ~TYPEMOD_SIGNED;
 			curmod->curtype->modifiers |= TYPEMOD_UNSIGNED;
@@ -933,19 +962,19 @@ type:
 		{
 			idl_intf_symlist_pop(curmod->curintf, curmod->cursymlist);
 		}
-	|	UNION_KW IDENTIFIER
-	|	ENUM_KW IDENTIFIER
-	|	IDENTIFIER
+	|	UNION_KW identifier
+	|	ENUM_KW identifier
+	|	identifier
 		{
 			curmod->curtype->builtin_type = TYPE_DEF;
 			if(NULL == (curmod->curtype->user_type = idl_intf_symdef_lookup(curmod->curintf, $1)))
 			{
-				idl_module_error(curmod, yylineno, "Undeclared typedef '%s'", $1);
+				idl_module_error(curmod, yyget_lineno(scanner), "Undeclared typedef '%s'", $1);
 			}
 		}
 	|	error
 		{
-			idl_module_error(curmod, yylineno, "Expected: identifier, found '%s'", $1);
+			idl_module_error(curmod, yyget_lineno(scanner), "Expected: identifier, found '%s'", $1);
 		}
 	;
 
@@ -967,7 +996,7 @@ struct:
 			curmod->curtype->symlist.symtype = SYM_MEMBER;
 			idl_intf_symlist_push(curmod->curintf, &(curmod->curtype->symlist));
 		}
-	|	STRUCT_KW IDENTIFIER
+	|	STRUCT_KW identifier
 		{
 			strncpy(curmod->curtype->tag, $2, IDL_IDENT_MAX);
 			curmod->curtype->tag[IDL_IDENT_MAX] = 0;
@@ -1044,7 +1073,7 @@ expression:
 	;
 
 expr_value:
-		IDENTIFIER
+		identifier
 	|	INTEGER_NUMERIC
 	|	FLOAT_NUMERIC
 	;

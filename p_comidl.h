@@ -51,6 +51,8 @@
 # ifdef HAVE_SYS_TYPES_H
 #  include <sys/types.h>
 # endif
+# include <sys/stat.h>
+# include <limits.h>
 
 # ifndef HAVE_GETOPT
 extern int opterr, optind, optopt, optreset;
@@ -65,6 +67,9 @@ extern int getopt(int argc, char * const argv[], const char *options);
 #include "idlparse.h"
 
 extern const char *progname;
+extern int nostdinc;
+extern int nodefimports;
+extern int nodefinc;
 
 typedef char idl_ident_t[64];
 
@@ -164,6 +169,7 @@ struct idl_symlist_struct
 
 struct idl_module_struct
 {
+	void *scanner;
 	char *filename; /* final filename, e.g., /Library/Frameworks/COM/Headers/wtypes.idl */
 	char *shortname; /* short filename, e.g., COM/wtypes.idl */
 	char *houtname; /* header output filename, e.g., wtypes.h */
@@ -180,8 +186,8 @@ struct idl_module_struct
 	size_t typestackpos;
 	idl_typedecl_t *curtype;
 	idl_symdef_t *cursym;
-	/* Output flags */
-	int nostdinc;
+	int nodefinc;
+	int nodefimports;
 };
 
 struct idl_interface_struct
@@ -242,11 +248,15 @@ struct idl_typedecl_struct
 
 extern idl_module_t *curmod;
 
-extern int yylineno;
+# define YY_DECL int yylex(YYSTYPE *yylval_param, void *yyscanner)
+extern YY_DECL;
 
-extern int yyparse(void);
-extern int yylex(void);
-extern void yyrestart(FILE *f);
+extern int yyparse(void *scanner);
+extern void yyrestart(FILE *f, void *scanner);
+extern char *yyget_text (void *yyscanner);
+extern int yyget_lineno (void *yyscanner);
+
+extern int idl_parse(const char *src, const char *hout, int defimp, int useinc);
 
 extern int idl_keyword_lookup(const char *s);
 
@@ -257,6 +267,7 @@ extern void idl_module_warning(idl_module_t *module, int line, const char *fmt, 
 
 extern idl_module_t *idl_module_create(const char *filename, const char *hout);
 extern int idl_module_done(idl_module_t *module);
+extern idl_module_t *idl_module_lookup(const char *pathname);
 extern int idl_module_addintf(idl_module_t *module, idl_interface_t *intf);
 extern int idl_module_doneintf(idl_module_t *module, idl_interface_t *intf);
 extern int idl_module_addguid(idl_module_t *module, const idl_guid_t *guid);
@@ -266,7 +277,7 @@ extern idl_symdef_t *idl_module_symdef_create(idl_module_t *module, idl_symlist_
 extern int idl_module_symdef_add(idl_module_t *module, idl_symlist_t *symlist, idl_symdef_t *sym);
 extern int idl_module_symdef_done(idl_module_t *module, idl_symlist_t *symlist, idl_symdef_t *sym);
 extern int idl_module_symdef_link(idl_module_t *module, idl_symlist_t *symlist, idl_symdef_t *symdef);
-extern idl_symdef_t *idl_module_symdef_lookup(idl_module_t *module, idl_symlist_t *start, const char *name);
+extern idl_symdef_t *idl_module_symdef_lookup(idl_module_t *module, idl_symlist_t *start, const char *name, int recurse);
 extern int idl_module_symlist_push(idl_module_t *module, idl_symlist_t *symlist);
 extern int idl_module_symlist_pop(idl_module_t *module, idl_symlist_t *symlist);
 
@@ -294,5 +305,9 @@ extern int idl_emit_cppquote(idl_module_t *module, const char *quote);
 extern int idl_emit_typedef(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_emit_const(idl_module_t *module, idl_symdef_t *symdef);
+
+extern int idl_incpath_add_includedir(const char *path);
+extern int idl_incpath_add_frameworkdir(const char *path);
+extern int idl_incpath_locate(char *buf, size_t buflen, const char *path);
 
 #endif /* !P_COMIDL_H_ */
