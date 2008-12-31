@@ -251,6 +251,8 @@ extern idl_module_t *curmod;
 # define YY_DECL int yylex(YYSTYPE *yylval_param, void *yyscanner)
 extern YY_DECL;
 
+extern int yylex_init(void **scanner);
+extern int yylex_destroy(void *scanner);
 extern int yyparse(void *scanner);
 extern void yyrestart(FILE *f, void *scanner);
 extern char *yyget_text (void *yyscanner);
@@ -306,6 +308,7 @@ extern int idl_emit_typedef(idl_module_t *module, idl_interface_t *intf, idl_sym
 extern int idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_emit_const(idl_module_t *module, idl_symdef_t *symdef);
 
+extern int idl_incpath_reset(void);
 extern int idl_incpath_add_includedir(const char *path);
 extern int idl_incpath_add_frameworkdir(const char *path);
 extern int idl_incpath_locate(char *buf, size_t buflen, const char *path);

@@ -337,10 +337,10 @@ idl_module_symdef_lookup(idl_module_t *module, idl_symlist_t *start, const char 
 	
 	if(NULL != start)
 	{
-		if(recurse)
+/*		if(recurse)
 		{
 			fprintf(stderr, "--- Searching for %s ---\n", name);
-		}
+		} */
 		while(start)
 		{
 			for(c = 0; c < start->ndefs; c++)
@@ -365,7 +365,7 @@ idl_module_symdef_lookup(idl_module_t *module, idl_symlist_t *start, const char 
 		 */
 		for(c = 0; c < module->ninterfaces; c++)
 		{
-			fprintf(stderr, "Searching %s in %s\n", module->interfaces[c]->name, module->filename);
+/*			fprintf(stderr, "Searching %s in %s\n", module->interfaces[c]->name, module->filename); */
 			if(NULL != (p = idl_module_symdef_lookup(module, &(module->interfaces[c]->symlist), name, 0)))
 			{
 				return p;
@@ -378,10 +378,10 @@ idl_module_symdef_lookup(idl_module_t *module, idl_symlist_t *start, const char 
 		return NULL;
 	}
 	/* Try all of the blocks in all of the modules */
-	fprintf(stderr, "nmodules is %u\n", (unsigned) nmodules);
+/*	fprintf(stderr, "nmodules is %u\n", (unsigned) nmodules); */
 	for(c = 0; c < nmodules; c++)
 	{
-		fprintf(stderr, "Searching %s\n", modules[c]->filename);
+/*		fprintf(stderr, "Searching %s\n", modules[c]->filename); */
 		if(NULL != (p = idl_module_symdef_lookup(modules[c], NULL, name, 0)))
 		{
 			return p;

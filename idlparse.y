@@ -969,12 +969,12 @@ type:
 			curmod->curtype->builtin_type = TYPE_DEF;
 			if(NULL == (curmod->curtype->user_type = idl_intf_symdef_lookup(curmod->curintf, $1)))
 			{
-				idl_module_error(curmod, yyget_lineno(scanner), "Undeclared typedef '%s'", $1);
+				idl_module_error(curmod, yyget_lineno(scanner), "undeclared typedef '%s'", $1);
 			}
 		}
 	|	error
 		{
-			idl_module_error(curmod, yyget_lineno(scanner), "Expected: identifier, found '%s'", $1);
+			idl_module_error(curmod, yyget_lineno(scanner), "expected: identifier; found '%s'", $1);
 		}
 	;
 

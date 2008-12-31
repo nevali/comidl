@@ -41,7 +41,6 @@ idl_module_t *curmod;
 
 /* Global options */
 
-int nostdinc = 0;
 int nodefimports = 0;
 int nodefinc = 0;
 
@@ -51,6 +50,8 @@ usage(void)
 	fprintf(stderr, "Usage: %s [OPTIONS] SOURCE\n"
 		"OPTIONS is one or more of:\n"
 		"  -H FILE                  Write inteface definition C/C++ header to FILE\n"
+		"  -P FILE                  Write proxy to FILE\n"
+		"  -S FILE                  Write stub to FILE\n"
 		"  -I PATH                  Add PATH to the import search path\n"
 		"  -F PATH                  Add PATH to the framework search path\n"
 		"  -nostdinc                Reset the import and framework search paths\n"
@@ -58,7 +59,8 @@ usage(void)
 		"  -nodefinc                Omit default includes from generated C/C++ headers\n"
 		"  -Wp,OPTIONS              Pass OPTIONS to the C preprocessor\n"
 		"  -v                       Display version information and exit\n"
-		"  -h                       Display this message and exit\n",
+		"  -h                       Display this message and exit\n"
+		"  -X LANGUAGE              Output for LANGUAGE [default=C]\n",
 		progname);
 }
 
@@ -112,7 +114,6 @@ idl_parse(const char *src, const char *hout, int defimp, int useinc)
 			return -1;
 		}
 	}
-	fprintf(stderr, "scanning '%s'\n", fpath);
 	if(NULL != idl_module_lookup(fpath))
 	{
 		fprintf(stderr, "%s has already been imported\n", fpath);
@@ -151,7 +152,7 @@ main(int argc, char **argv)
 	srcfile = NULL;
 	intfheader = NULL;
 	defaults = 1;
-	while((c = getopt(argc, argv, "H:I:F:n:W:hv")) != -1)
+	while((c = getopt(argc, argv, "h:p:s:I:F:n:W:X:hv")) != -1)
 	{
 		switch(c)
 		{
@@ -164,6 +165,26 @@ main(int argc, char **argv)
 				break;
 			case 'F':
 				idl_incpath_add_frameworkdir(optarg);
+				break;
+			case 'n':
+				if(0 == strcmp(optarg, "ostdinc"))
+				{
+					idl_incpath_reset();
+				}
+				else if(0 == strcmp(optarg, "odefimports"))
+				{
+					nodefimports = 1;
+				}
+				else if(0 == strcmp(optarg, "odefinc"))
+				{
+					nodefinc = 1;
+				}
+				else
+				{
+					fprintf(stderr, "%s: illegal option -- n%s\n", progname, optarg);
+					usage();
+					exit(EXIT_FAILURE);
+				}
 				break;
 			case 'h':
 				usage();
@@ -218,6 +239,9 @@ main(int argc, char **argv)
 		}
 		intfheader = ih;
 	}
+/*	idl_incpath_addincludedir("/usr/include");
+	idl_incpath_addframeworkdir("/System/Library/Frameworks");
+	idl_incpath_addframeworkdir("/Library/Frameworks"); */
 	curmod = NULL;
 	if(-1 == idl_parse(srcfile, intfheader, 1, 0))
 	{

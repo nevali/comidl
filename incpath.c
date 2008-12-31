@@ -83,6 +83,22 @@ incpath_add(const char *path, int isfw)
 }
 
 int
+idl_incpath_reset(void)
+{
+	size_t c;
+	
+	for(c = 0; c < nincpath; c++)
+	{
+		free(incpath[c]->path);
+		free(incpath[c]);
+	}
+	free(incpath);
+	incpath = NULL;
+	nincpath = 0;
+	return 0;
+}
+
+int
 idl_incpath_add_includedir(const char *path)
 {
 	if(NULL == incpath_add(path, 0))
@@ -109,14 +125,15 @@ idl_incpath_locate(char *buf, size_t buflen, const char *path)
 	char pathbuf[PATH_MAX + 1];
 	struct stat sbuf;
 	
-	for(c = 0; c < nincpath; c++)
+	/* Look in the most recently-added locations first */
+	for(c = nincpath; c; c--)
 	{
-		if(strlen(incpath[c]->path) + strlen(path) > PATH_MAX)
+		if(strlen(incpath[c - 1]->path) + strlen(path) > PATH_MAX)
 		{
-			fprintf(stderr, "%s: %s%s: path too long\n", progname, incpath[c]->path, path);
+			fprintf(stderr, "%s: %s%s: path too long\n", progname, incpath[c - 1]->path, path);
 			continue;
 		}
-		strcpy(pathbuf, incpath[c]->path);
+		strcpy(pathbuf, incpath[c - 1]->path);
 		strcat(pathbuf, path);
 		if(0 == stat(pathbuf, &sbuf))
 		{
