@@ -152,7 +152,7 @@ main(int argc, char **argv)
 	srcfile = NULL;
 	intfheader = NULL;
 	defaults = 1;
-	while((c = getopt(argc, argv, "h:p:s:I:F:n:W:X:hv")) != -1)
+	while((c = getopt(argc, argv, "H:P:S:I:F:n:W:X:hv")) != -1)
 	{
 		switch(c)
 		{
