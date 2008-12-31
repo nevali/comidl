@@ -104,47 +104,15 @@ idl_intf_started(idl_interface_t *intf)
 	{
 		idl_module_addguid(intf->module, &(intf->uuid));
 	}
-
+	idl_emit_intf_prologue(intf->module, intf);
 	return 0;
 }
 
-void
-idl_intf_write_prolog(idl_interface_t *intf)
+int
+idl_intf_finished(idl_interface_t *intf)
 {
-	FILE *f;
-	
-	if(NULL != intf->module->hout)
-	{
-		f = intf->module->hout;
-		fprintf(f, "/* %s version 0x%x */\n", intf->name, (unsigned int) intf->version);
-		if(intf->object)
-		{
-			fprintf(f, "#ifndef __%s_INTERFACE_DEFINED__\n", intf->name);
-			fprintf(f, "#define __%s_INTERFACE_DEFINED__\n\n", intf->name);
-			fprintf(f, "#define INTERFACE %s\n", intf->name);
-			fprintf(f, "DECLARE_INTERFACE(%s)\n", intf->name);
-			fprintf(f, "{\n");
-			fprintf(f, "\tBEGIN_INTERFACE\n\n");
-		}
-	}
-}
-
-void
-idl_intf_write_epilog(idl_interface_t *intf)
-{
-	FILE *f;
-	
-	if(NULL != intf->module->hout)
-	{
-		f = intf->module->hout;
-		if(intf->object)
-		{
-			fprintf(f, "\n\tEND_INTERFACE\n");
-			fprintf(f, "}\n");
-			fprintf(f, "#undef INTERFACE\n");
-			fprintf(f, "\n#endif /*!__%s__INTERFACE_DEFINED__*/\n\n", intf->name);
-		}
-	}
+	idl_emit_intf_epilogue(intf->module, intf);
+	return 0;
 }
 
 int

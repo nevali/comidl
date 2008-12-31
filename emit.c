@@ -43,8 +43,8 @@ static void idl_emit_cxxinc_write_footer(idl_module_t *module);
 static void idl_emit_cxxinc_write_indent(idl_module_t *module);
 
 static void idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl);
-static void idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef);
-static int idl_emit_write_sym(idl_module_t *module, FILE *f, idl_symdef_t *symdef);
+static void idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt);
+static int idl_emit_write_sym(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt);
 
 static int
 idl_emit_cxxinc_open(idl_module_t *module)
@@ -87,17 +87,18 @@ idl_emit_cxxinc_write_header(idl_module_t *module)
 	{
 		fprintf(module->hout, "\n# include \"DCE-RPC/idlbase.h\"\n");
 	}
-	fprintf(module->hout, "\n"
+/*	fprintf(module->hout, "\n"
 		"# if defined(__cplusplus)\n"
 		"extern \"C\" {\n"
 		"# endif\n\n"
-		);
+		); */
 	if(0 == nodefinc && 0 == module->nodefinc &&
 		0 == nodefimports && 0 == module->nodefimports)
 	{
 		/* This corresponds to the default import of nbase.idl */
-		fprintf(module->hout, "# include \"DCE-RPC/nbase.h\"\n\n");
+		fprintf(module->hout, "# include \"DCE-RPC/nbase.h\"\n");
 	}
+	fputc('\n', module->hout);
 }
 
 static void
@@ -105,12 +106,12 @@ idl_emit_cxxinc_write_footer(idl_module_t *module)
 {
 	size_t c;
 	
-	fprintf(module->hout, "\n"
+/*	fprintf(module->hout, "\n"
 		"# if defined(__cplusplus)\n"
 		"}\n"
 		"# endif\n\n"
-		);
-	fprintf(module->hout, "#endif /*!%s*/\n", module->hmacro);
+		); */
+	fprintf(module->hout, "\n#endif /*!%s*/\n", module->hmacro);
 	for(c = 0; c < module->nguids; c++)
 	{
 		fprintf(module->hout, "\n/* %s = {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x} */\n",
@@ -260,7 +261,7 @@ idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 		for(c = 0; c < decl->symlist.ndefs; )
 		{
 			idl_emit_cxxinc_write_indent(module);
-			c += idl_emit_write_sym(module, f, decl->symlist.defs[c]);
+			c += idl_emit_write_sym(module, f, decl->symlist.defs[c], NULL);
 			fputc(';', module->hout);
 			fputc('\n', module->hout);
 		}
@@ -272,7 +273,7 @@ idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 }
 
 static void
-idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef)
+idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt)
 {
 	size_t c;
 
@@ -303,7 +304,7 @@ idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef)
 				fputc(')', f);
 				break;
 			case DECL_IDENT:
-				fprintf(f, "%s", symdef->ident);
+				fprintf(f, fmt, symdef->ident);
 				break;
 		}
 	}
@@ -320,7 +321,7 @@ idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef)
 			{
 				/* We never chain in a list of function parameters */
 				symdef->fp_params.defs[c]->nextsym = NULL;
-				idl_emit_write_sym(module, f, symdef->fp_params.defs[c]);
+				idl_emit_write_sym(module, f, symdef->fp_params.defs[c], NULL);
 				if(c < symdef->fp_params.ndefs - 1)
 				{
 					fputc(',', f);
@@ -346,11 +347,15 @@ idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef)
 }
 
 static int
-idl_emit_write_sym(idl_module_t *module, FILE *f, idl_symdef_t *symdef)
+idl_emit_write_sym(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt)
 {
 	idl_symdef_t *p;
 	int c;
 	
+	if(NULL == fmt)
+	{
+		fmt = "%s";
+	}
 	c = 0;
 	idl_emit_write_type(module, f, symdef->decl);
 	for(p = symdef; p; p = p->nextsym)
@@ -360,7 +365,7 @@ idl_emit_write_sym(idl_module_t *module, FILE *f, idl_symdef_t *symdef)
 			fputc(',', module->hout);
 			fputc(' ', module->hout);
 		}
-		idl_emit_write_symdef(module, module->hout, p);
+		idl_emit_write_symdef(module, module->hout, p, fmt);
 		c++;
 	}
 	return c;
@@ -400,7 +405,7 @@ idl_emit_typedef(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symd
 	if(1 == idl_emit_cxxinc_open(module))
 	{
 		fprintf(module->hout, "typedef ");
-		idl_emit_write_sym(module, module->hout, symdef);
+		idl_emit_write_sym(module, module->hout, symdef, NULL);
 		fputc(';', module->hout);
 		fputc('\n', module->hout);
 	}
@@ -415,7 +420,9 @@ idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t 
 	{
 		if(1 == idl_emit_cxxinc_open(module))
 		{
-			idl_emit_write_sym(module, module->hout, symdef);
+			fprintf(module->hout, "RPC_CEXPORT ");
+			idl_emit_write_sym(module, module->hout, symdef, "RPC_SYM(%s)");
+			fprintf(module->hout, " RPC_ALIAS(%s)", symdef->ident);
 			fputc(';', module->hout);
 			fputc('\n', module->hout);
 		}
@@ -428,7 +435,80 @@ idl_emit_const(idl_module_t *module, idl_symdef_t *symdef)
 {
 	if(1 == idl_emit_cxxinc_open(module))
 	{
-		fprintf(module->hout, "# define %s %ld\n", symdef->ident, symdef->constval);
+		fprintf(module->hout, "#  define %s %ld\n", symdef->ident, symdef->constval);
+	}
+	return 0;
+}
+
+/* Write an interface's prologue */
+
+int
+idl_emit_intf_prologue(idl_module_t *module, idl_interface_t *intf)
+{
+	FILE *f;
+	unsigned major, minor;
+	
+	if(1 == idl_emit_cxxinc_open(module))
+	{
+		f = module->hout;
+		major = (unsigned int) (intf->version >> 16);
+		minor = (unsigned int) (intf->version & 0xFFFF);
+		fprintf(f, "/* %s version %u.%u */\n", intf->name, major, minor);
+		fprintf(f, "# ifndef %s_v%u_%u_defined_\n", intf->name, major, minor);
+		fprintf(f, "#  define %s_v%u_%u_defined_\n", intf->name, major, minor);
+		fprintf(f, "#  undef RPC_EXPORTS\n");
+		fprintf(f, "#  ifdef RPC_EXPORT_%s_v%d_%d\n", intf->name, major, minor);
+		fprintf(f, "#   define RPC_EXPORTS\n");
+		fprintf(f, "#  endif\n");
+		fprintf(f, "#  include \"DCE-RPC/decl.h\"\n\n");
+		if(BLOCK_INTERFACE == intf->type && intf->object)
+		{
+			fprintf(f, "#  define INTERFACE %s\n", intf->name);
+		}
+	}
+	return 0;
+}
+
+int
+idl_emit_intf_epilogue(idl_module_t *module, idl_interface_t *intf)
+{
+	FILE *f;
+	unsigned int major, minor;
+	size_t c;
+	int first;
+	
+	if(1 == idl_emit_cxxinc_open(module))
+	{
+		f = module->hout;
+		major = (unsigned int) (intf->version >> 16);
+		minor = (unsigned int) (intf->version & 0xFFFF);
+		fputc('\n', f);
+		if(BLOCK_INTERFACE == intf->type && intf->object)
+		{
+			fprintf(f, "#  undef INTERFACE\n");
+		}
+		if(1 == intf->local && 0 == intf->object)
+		{
+			first = 1;
+			for(c = 0; c < intf->symlist.ndefs; c++)
+			{
+				if(SYM_METHOD == intf->symlist.defs[c]->type)
+				{
+					if(first)
+					{
+						fprintf(f, "#  ifdef RPC_ALIAS_MACROS\n");
+						first = 0;
+					}
+					fprintf(f, "#   define %s RPC_LOCAL_SYM(%s)\n", intf->symlist.defs[c]->ident, intf->symlist.defs[c]->ident);
+				}
+			}
+			if(0 == first)
+			{
+				fprintf(f, "#  endif /*RPC_ALIAS_MACROS*/\n");
+			}
+		}
+		fprintf(f, "#  undef RPC_EXPORTS\n");
+		fprintf(f, "# endif /*!%s_v%u_%u_defined_*/\n\n", intf->name, major, minor);
 	}
 	return 0;
 }

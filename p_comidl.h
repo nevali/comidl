@@ -288,8 +288,7 @@ extern int idl_intf_done(idl_interface_t *intf);
 extern int idl_intf_uuid(idl_interface_t *intf, const char *uuid);
 extern int idl_intf_name(idl_interface_t *intf, const char *name);
 extern int idl_intf_started(idl_interface_t *intf);
-extern void idl_intf_write_prolog(idl_interface_t *intf);
-extern void idl_intf_write_epilog(idl_interface_t *intf);
+extern int idl_intf_finished(idl_interface_t *intf);
 extern idl_symdef_t *idl_intf_symdef_create(idl_interface_t *intf, idl_typedecl_t *typedecl);
 extern int idl_intf_symdef_done(idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_intf_symdef_link(idl_interface_t *intf, idl_symdef_t *symdef);
@@ -307,6 +306,8 @@ extern int idl_emit_cppquote(idl_module_t *module, const char *quote);
 extern int idl_emit_typedef(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_emit_const(idl_module_t *module, idl_symdef_t *symdef);
+extern int idl_emit_intf_prologue(idl_module_t *module, idl_interface_t *intf);
+extern int idl_emit_intf_epilogue(idl_module_t *module, idl_interface_t *intf);
 
 extern int idl_incpath_reset(void);
 extern int idl_incpath_add_includedir(const char *path);

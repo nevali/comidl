@@ -311,14 +311,10 @@ identifier:
 
 interface_ancestor:
 		/* Nothing */
-		{
-			idl_intf_write_prolog(curmod->curintf);
-		}
-		| COLON identifier
+	|	COLON identifier
 		{
 			fprintf(stderr, "interface inherits from %s\n", $2);
 			/* XXX look up ancestor */
-			idl_intf_write_prolog(curmod->curintf);
 		}
 	;
 
@@ -330,7 +326,7 @@ interface_init:
 
 interface_tail:
 		LBRACE interface_body RBRACE
-		{ idl_intf_write_epilog(curmod->curintf); }
+		{ idl_intf_finished(curmod->curintf); }
 	|	error
 		{
 			$$ = NULL;
