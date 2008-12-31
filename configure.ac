@@ -40,6 +40,7 @@ CFLAGS="$CFLAGS -g -O0"
 export CFLAGS
 
 AC_PROG_CC
+AC_PROG_CPP
 AM_PROG_LEX
 AC_PROG_YACC
 AC_PROG_SED
@@ -55,6 +56,8 @@ fi
 AC_SUBST([IDL_CPPFLAGS])
 AC_SUBST([IDL_CC])
 AC_SUBST([IDL_CPP])
+
+AC_DEFINE([IDL_CPP], [$IDL_CPP], [C preprocessor command])
 
 AC_CHECK_HEADERS([stdlib.h stdint.h unistd.h inttypes.h unistd.h stdarg.h])
 

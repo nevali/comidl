@@ -96,94 +96,125 @@ yyerror(char *s)
 
 %}
 
-/********************************************************************/
-/*                                                                  */
-/*          Tokens used by the IDL parser.                          */
-/*                                                                  */
-/********************************************************************/
-
-
 /* Keywords                 */
 %token ALIGN_KW
-%token BYTE_KW
-%token CHAR_KW
-%token CONST_KW
-%token DEFAULT_KW
-%token ENUM_KW
-%token EXCEPTIONS_KW
-%token FLOAT_KW
-%token HYPER_KW
-%token INT_KW
-%token INTERFACE_KW
-%token IMPORT_KW
-%token LIBRARY_KW
-%token LONG_KW
-%token PIPE_KW
-%token REF_KW
-%token SMALL_KW
-%token STRUCT_KW
-%token TYPEDEF_KW
-%token UNION_KW
-%token UNSIGNED_KW
-%token SHORT_KW
-%token VOID_KW
-%token DOUBLE_KW
+%token ARRAY_KW
+%token ASTRING_KW
+
+%token BINARYNAME_KW
 %token BOOLEAN_KW
-%token CASE_KW
-%token SWITCH_KW
-%token HANDLE_T_KW
-%token TRUE_KW
-%token FALSE_KW
-%token NULL_KW
 %token BROADCAST_KW
+%token BYTE_KW
+
+%token CALL_AS_KW
+%token CASE_KW
+%token CHAR_KW
+%token COCLASS_KW
+%token CONST_KW
 %token COMM_STATUS_KW
 %token CONTEXT_HANDLE_KW
+%token CPP_QUOTE_KW
+%token CSTRING_KW
+
+%token DEFAULT_KW
+%token DISPINTERFACE_KW
+%token DOMSTRING_KW
+%token DOUBLE_KW
+
+%token ENDPOINT_KW
+%token ENUM_KW
+%token EXCEPTIONS_KW
+
+%token FALSE_KW
 %token FIRST_IS_KW
+%token FLOAT_KW
+%token FUNCTION_KW
+
 %token HANDLE_KW
+%token HANDLE_T_KW
+%token HYPER_KW
+
 %token IDEMPOTENT_KW
 %token IGNORE_KW
-%token CALL_AS_KW
 %token IID_IS_KW
 %token IMPLICIT_HANDLE_KW
+%token IMPORT_KW
 %token IN_KW
+%token INOUT_KW
+%token INT_KW
+%token INTERFACE_KW
+
 %token LAST_IS_KW
 %token LENGTH_IS_KW
+%token LIBRARY_KW
 %token LOCAL_KW
+%token LONG_KW
+
 %token MAX_IS_KW
 %token MAYBE_KW
 %token MIN_IS_KW
+%token MODULE_KW
 %token MUTABLE_KW
+
+%token NULL_KW
+%token NATIVE_KW
+%token NOSCRIPT_KW
+%token NOTXPCOM_KW
+%token NSID_KW
+
+%token OCTET_KW
 %token OUT_KW
 %token OBJECT_KW
+
+%token PIPE_KW
+%token PROGRAM_KW
 %token POINTER_DEFAULT_KW
-%token ENDPOINT_KW
 %token PTR_KW
+
 %token RANGE_KW
+%token REF_KW
 %token REFLECT_DELETIONS_KW
 %token REMOTE_KW
+%token RESTRICT_KW
+%token RETVAL_KW
+
+%token SCRIPTABLE_KW
 %token SECURE_KW
 %token SHAPE_KW
+%token SHORT_KW
 %token SIGNED_KW
 %token SIZE_IS_KW
+%token SMALL_KW
 %token STRING_KW
+%token STRUCT_KW
+%token SWITCH_KW
 %token SWITCH_IS_KW
 %token SWITCH_TYPE_KW
+
+%token TRUE_KW
 %token TRANSMIT_AS_KW
+%token TYPEDEF_KW
+
+%token UNION_KW
 %token UNIQUE_KW
+%token UNSIGNED_KW
+%token UTF8STRING_KW
 %token UUID_KW
-%token VERSION_KW
+
 %token V1_ARRAY_KW
-%token V1_STRING_KW
 %token V1_ENUM_KW
+%token V1_STRING_KW
 %token V1_STRUCT_KW
-%token CPP_QUOTE_KW
+%token VERSION_KW
+%token VOID_KW
+
+%token WCHAR_KW
 %token WIRE_MARSHAL_KW
-%token RESTRICT_KW
+%token WSTRING_KW
 
 /*  Non-keyword tokens      */
 
 %token UUID
-
 
 /*  Punctuation             */
 
@@ -232,14 +263,19 @@ yyerror(char *s)
 %%
 
 module:
-		interfaces
+		blocks
+	;
+	
+blocks:
+		block
+	|	blocks block
+	;
+	
+block:
+		interface
+	|	typedef_decl
 	|	optional_imports
 	|	cpp_quote
-	;
-
-interfaces:
-		interfaces interface
-	|	interface
 	;
 
 interface:
@@ -462,6 +498,7 @@ export:
 		cpp_quote
 	|	typedef_decl
 	|	method_decl
+	|	const_decl
 	|	error
 		{
 			fprintf(stderr, "Parse error during exports\n");
@@ -482,17 +519,14 @@ attribute_closer:
 
 
 extraneous_comma:
-        /* Nothing */
-    |   COMMA
-        {
-		}
-    ;
+		COMMA
+	|	/* nothing */
+	;
 
 extraneous_semi:
-        /* Nothing */
-    |   SEMI
-        {
-		}
+		SEMI
+	|	extraneous_semi SEMI
+	|	/* nothing */
     ;
 
 typedef_decl:
@@ -501,6 +535,24 @@ typedef_decl:
 			idl_module_typedecl_pop(curmod);
 			idl_intf_write_typedef(curmod->curintf, curmod->curintf->firstsym);
 			curmod->curintf->firstsym = NULL;
+		}
+	;
+	
+const_decl:
+		CONST_KW const_type IDENTIFIER EQUAL INTEGER_NUMERIC SEMI
+		{
+			idl_emit_const(curmod, curmod->curintf, $3, $5);
+		}
+	;
+	
+const_type:
+		SMALL_KW
+		{
+			$$ = $1;
+		}
+	|	LONG_KW
+		{
+			$$ = $1;
 		}
 	;
 
@@ -554,11 +606,11 @@ typedef_init:
 	
 /* A single declaration (i.e., a function parameter) */
 pointer_ident_decl:
-		symdef_init declarator LPAREN fp_args_init possible_arg_list RPAREN
+		symdef_init declarator LPAREN fp_args_init possible_arg_list RPAREN possible_array
 		{
 			idl_intf_symlist_pop(curmod->curintf, curmod->cursymlist);
 		}
-	|	symdef_init declarator
+	|	symdef_init declarator possible_array
 		{
 			if(0 != curmod->cursym->is_fp)
 			{
@@ -570,11 +622,11 @@ pointer_ident_decl:
 	
 /* One or more declarations in a comma-separated list */
 pointer_ident_decl_list:
-		symdef_init declarator LPAREN fp_args_init_first possible_arg_list RPAREN
+		symdef_init declarator LPAREN fp_args_init_first possible_arg_list RPAREN possible_array
 		{
 			idl_intf_symlist_pop(curmod->curintf, curmod->cursymlist);
 		}
-	|	symdef_init declarator
+	|	symdef_init declarator possible_array
 		{
 			if(0 != curmod->cursym->is_fp)
 			{
@@ -583,11 +635,11 @@ pointer_ident_decl_list:
 			curmod->curintf->firstsym = curmod->cursym;
 			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
 		}
-	|	pointer_ident_decl_list COMMA symdef_init declarator LPAREN fp_args_init_link possible_arg_list RPAREN
+	|	pointer_ident_decl_list COMMA symdef_init declarator LPAREN fp_args_init_link possible_arg_list RPAREN possible_array
 		{
 			idl_intf_symlist_pop(curmod->curintf, curmod->cursymlist);
 		}
-	|	pointer_ident_decl_list COMMA symdef_init declarator
+	|	pointer_ident_decl_list COMMA symdef_init declarator possible_array
 		{
 			if(0 != curmod->cursym->is_fp)
 			{
@@ -628,6 +680,25 @@ direct_declarator:
 		{
 			fprintf(stderr, "Error in direct_declarator\n");
 		}
+	;
+	
+possible_array:
+		LBRACKET STAR RBRACKET
+		{
+			curmod->cursym->is_array = 1;
+			curmod->cursym->array_len = -2;
+		}
+	|	LBRACKET RBRACKET
+		{
+			curmod->cursym->is_array = 1;
+			curmod->cursym->array_len = -1;
+		}
+	|	LBRACKET INTEGER_NUMERIC RBRACKET
+		{
+			curmod->cursym->is_array = 1;
+			curmod->cursym->array_len = atoi($2);
+		}
+	|	/* nothing */
 	;
 
 fnpointer_init:
@@ -739,13 +810,15 @@ type_attr_list:
 type_attr:
 		STRING_KW
 	|	WIRE_MARSHAL_KW LPAREN IDENTIFIER RPAREN
-	|	SIZE_IS_KW LPAREN IDENTIFIER RPAREN
+	|	SIZE_IS_KW LPAREN expression RPAREN
+	|	RANGE_KW LPAREN expression COMMA expression RPAREN
 	|	PTR_KW
 	|	UNIQUE_KW
 	|	REF_KW
 	|	IID_IS_KW LPAREN IDENTIFIER RPAREN
 	|	IN_KW
 	|	OUT_KW
+	|	V1_STRUCT_KW
 	;
 
 type_modifiers:
@@ -784,7 +857,7 @@ type:
 		}
 	|	LONG_KW INT_KW
 		{
-			curmod->curtype->builtin_type = TYPE_LONG;
+			curmod->curtype->builtin_type = TYPE_INT32;
 		}
 	|	LONG_KW LONG_KW INT_KW
 		{
@@ -796,7 +869,7 @@ type:
 		}
 	|	SHORT_KW
 		{
-			curmod->curtype->builtin_type = TYPE_SHORT;
+			curmod->curtype->builtin_type = TYPE_INT16;
 		}
 	|	LONG_KW LONG_KW
 		{
@@ -804,7 +877,7 @@ type:
 		}
 	|	LONG_KW
 		{
-			curmod->curtype->builtin_type = TYPE_LONG;
+			curmod->curtype->builtin_type = TYPE_INT32;
 		}
 	|	FLOAT_KW
 		{
@@ -813,6 +886,24 @@ type:
 	|	DOUBLE_KW
 		{
 			curmod->curtype->builtin_type = TYPE_DOUBLE;
+		}
+	|	SMALL_KW
+		{
+			curmod->curtype->builtin_type = TYPE_INT16;
+		}
+	|	byte
+		{
+			curmod->curtype->builtin_type = TYPE_INT8;
+			if(0 != (curmod->curtype->modifiers & (TYPEMOD_SIGNED|TYPEMOD_UNSIGNED)))
+			{
+				idl_module_warning(curmod, yylineno, "'%s' types are always unsigned\n", $1);
+			}
+			curmod->curtype->modifiers &= ~TYPEMOD_SIGNED;
+			curmod->curtype->modifiers |= TYPEMOD_UNSIGNED;
+		}
+	|	HYPER_KW
+		{
+			curmod->curtype->builtin_type = TYPE_INT64;
 		}
 	|	struct LBRACE struct_body RBRACE
 		{
@@ -838,7 +929,18 @@ type:
 			idl_module_error(curmod, yylineno, "Expected: identifier, found '%s'", $1);
 		}
 	;
-	
+
+byte:
+		OCTET_KW
+		{
+			$$ = $1;
+		}
+	|	BYTE_KW
+		{
+			$$ = $1;
+		}
+	;
+
 struct:
 		STRUCT_KW
 		{
@@ -913,4 +1015,39 @@ uuid:
 			memmove(yylval, s, 36);
 			yylval[36] = 0;
 		}
+	;
+
+expression:
+		prefix_operator expr_value
+	|	prefix_operator expr_value postfix_operator expression
+	|	expression QUESTION expression COLON expression
+	|	LPAREN expression RPAREN
+	;
+
+expr_value:
+		IDENTIFIER
+	|	INTEGER_NUMERIC
+	|	FLOAT_NUMERIC
+	;
+
+prefix_operator:
+		NOT
+	|	TILDE
+	|	/* nothing */
+	;
+
+postfix_operator:
+		PLUS
+	|	MINUS
+	|	SLASH
+	|	STAR
+	|	PERCENT
+	|	CARET
+	|	LANGLEANGLE
+	|	RANGLEANGLE
+	|	AMP
+	|	AMPAMP
+	|	BAR
+	|	BARBAR
+	|	NOTEQUAL
 	;

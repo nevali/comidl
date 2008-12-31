@@ -60,31 +60,42 @@ int
 idl_intf_started(idl_interface_t *intf)
 {
 	uint8_t nulldata[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-	int hasuuid = 0;
+	int hasuuid, needuuid;
 	
 	if(intf->type == BLOCK_INTERFACE)
 	{
-		if(intf->object || 0 == intf->local)
+		if(intf->object)
 		{
-			hasuuid = 1;
+			needuuid = 1;
+		}
+		else if(0 == intf->local)
+		{
+			needuuid = -1;
 		}
 	}
 	else if(intf->type == BLOCK_COCLASS)
 	{
+		needuuid = 1;
+	}
+	if(!intf->uuid.data1 && !intf->uuid.data2 && !intf->uuid.data3 &&
+		0 == memcmp(nulldata, intf->uuid.data4, 8))
+	{
+		hasuuid = 0;
+	}
+	else
+	{
 		hasuuid = 1;
 	}
-	if(1 == hasuuid)
+	if(1 == needuuid)
 	{
-		if(!intf->uuid.data1 && !intf->uuid.data2 && !intf->uuid.data3 &&
-			0 == memcmp(nulldata, intf->uuid.data4, 8))
+		if(0 == hasuuid)
 		{
 			idl_module_error(intf->module, yylineno, "The uuid() attribute is required for the definition of %s", intf->name);
 		}
 	}
-	else if(0 == hasuuid)
+	else if(0 == needuuid)
 	{
-		if(intf->uuid.data1 || intf->uuid.data2 || intf->uuid.data3 ||
-			0 != memcmp(nulldata, intf->uuid.data4, 8))
+		if(1 == hasuuid)
 		{
 			idl_module_warning(intf->module, yylineno, "The uuid() attribute should not be specified for the definition of %s", intf->name);
 		}

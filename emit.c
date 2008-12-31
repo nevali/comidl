@@ -82,7 +82,20 @@ idl_emit_cxxinc_write_header(idl_module_t *module)
 {
 	fprintf(module->hout, "/* Automatically generated from %s by %s */\n\n", module->shortname, progname);
 	fprintf(module->hout, "#ifndef %s\n", module->hmacro);
-	fprintf(module->hout, "# define %s\n\n", module->hmacro);
+	fprintf(module->hout, "# define %s\n", module->hmacro);
+	if(0 == module->nostdinc)
+	{
+		fprintf(module->hout, "\n# include \"DCE-RPC/idlbase.h\"\n");
+	}
+	fprintf(module->hout, "\n"
+		"# if defined(__cplusplus)\n"
+		"extern \"C\" {\n"
+		"# endif\n\n"
+		);
+	if(0 == module->nostdinc)
+	{
+		fprintf(module->hout, "# include \"DCE-RPC/nbase.h\"\n\n");
+	}
 }
 
 static void
@@ -90,7 +103,12 @@ idl_emit_cxxinc_write_footer(idl_module_t *module)
 {
 	size_t c;
 	
-	fprintf(module->hout, "\n#endif /*!%s*/\n", module->hmacro);
+	fprintf(module->hout, "\n"
+		"# if defined(__cplusplus)\n"
+		"}\n"
+		"# endif\n\n"
+		);
+	fprintf(module->hout, "#endif /*!%s*/\n", module->hmacro);
 	for(c = 0; c < module->nguids; c++)
 	{
 		fprintf(module->hout, "\n/* %s = {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x} */\n",
@@ -130,13 +148,19 @@ idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 	{
 		fprintf(f, "const ");
 	}
-	if(decl->modifiers & TYPEMOD_UNSIGNED)
+	if(decl->builtin_type == TYPE_CHAR ||
+		decl->builtin_type == TYPE_INT ||
+		decl->builtin_type == TYPE_LONG ||
+		decl->builtin_type == TYPE_LONGLONG)
 	{
-		fprintf(f, "unsigned ");
-	}
-	else if(decl->modifiers & TYPEMOD_SIGNED)
-	{
-		fprintf(f, "signed ");
+		if(decl->modifiers & TYPEMOD_UNSIGNED)
+		{
+			fprintf(f, "unsigned ");
+		}
+		else if(decl->modifiers & TYPEMOD_SIGNED)
+		{
+			fprintf(f, "signed ");
+		}
 	}
 	switch(decl->builtin_type)
 	{
@@ -182,6 +206,47 @@ idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 		case TYPE_DEF:
 			fprintf(f, "%s ", decl->user_type->ident);
 			break;
+		case TYPE_INT8:
+			if(decl->modifiers & TYPEMOD_UNSIGNED)
+			{
+				fprintf(f, "uint8_t ");
+			}
+			else
+			{
+				fprintf(f, "int8_t ");
+			}
+			break;
+		case TYPE_INT16:
+			if(decl->modifiers & TYPEMOD_UNSIGNED)
+			{
+				fprintf(f, "uint16_t ");
+			}
+			else
+			{
+				fprintf(f, "int16_t ");
+			}
+			break;
+		case TYPE_INT32:
+			if(decl->modifiers & TYPEMOD_UNSIGNED)
+			{
+				fprintf(f, "uint32_t ");
+			}
+			else
+			{
+				fprintf(f, "int32_t ");
+			}
+			break;
+		case TYPE_INT64:
+			if(decl->modifiers & TYPEMOD_UNSIGNED)
+			{
+				fprintf(f, "uint64_t ");
+			}
+			else
+			{
+				fprintf(f, "int64_t ");
+			}
+			break;
+			
 	}
 	if(decl->has_symlist)
 	{
@@ -263,6 +328,19 @@ idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef)
 			fputc(')', f);
 		}
 	}
+	if(symdef->is_array)
+	{
+		fputc('[', f);
+		if(symdef->array_len > 0)
+		{
+			fprintf(f, "%d", (int) symdef->array_len);
+		}
+		else
+		{
+			fputc('1', f);
+		}
+		fputc(']', f);
+	}
 }
 
 static int
@@ -335,11 +413,22 @@ idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t 
 	{
 		if(1 == idl_emit_cxxinc_open(module))
 		{
-			fprintf(module->hout, "extern ");
 			idl_emit_write_sym(module, module->hout, symdef);
 			fputc(';', module->hout);
 			fputc('\n', module->hout);
 		}
+	}
+	return 0;
+}
+
+int
+idl_emit_const(idl_module_t *module, idl_interface_t *intf, const char *name, long value)
+{
+	(void) intf;
+	
+	if(1 == idl_emit_cxxinc_open(module))
+	{
+		fprintf(module->hout, "# define %s %ld\n", name, value);
 	}
 	return 0;
 }

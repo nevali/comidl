@@ -110,7 +110,11 @@ typedef enum
 	TYPE_UNION,
 	TYPE_ENUM,
 	TYPE_INTERFACE,
-	TYPE_DEF
+	TYPE_DEF,
+	TYPE_INT8,
+	TYPE_INT16,
+	TYPE_INT32,
+	TYPE_INT64
 } idl_builtintype_t;
 
 typedef enum
@@ -137,7 +141,8 @@ typedef enum
 	SYM_TYPEDEF,
 	SYM_METHOD,
 	SYM_PARAM,
-	SYM_MEMBER
+	SYM_MEMBER,
+	SYM_CONST
 } idl_symtype_t;
 
 struct idl_guid_struct
@@ -175,6 +180,8 @@ struct idl_module_struct
 	size_t typestackpos;
 	idl_typedecl_t *curtype;
 	idl_symdef_t *cursym;
+	/* Output flags */
+	int nostdinc;
 };
 
 struct idl_interface_struct
@@ -236,6 +243,8 @@ extern int yylineno;
 extern int yyparse(void);
 extern int yylex(void);
 extern void yyrestart(FILE *f);
+
+extern int idl_keyword_lookup(const char *s);
 
 extern void idl_module_vmsg(idl_module_t *module, int line, const char *prefix, const char *fmt, va_list ap);
 extern void idl_module_error(idl_module_t *module, int line, const char *fmt, ...);

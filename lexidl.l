@@ -90,6 +90,8 @@
 #  define YYSTYPE char *
 # endif
 
+static void read_c_comment(void);
+
 %}
 
 %option noyywrap
@@ -165,58 +167,24 @@ other           .
 	return STRING;
 }
 
+"/*"    { read_c_comment(); }
+
 {uuid}			{
 	yylval = yytext;
 	return(UUID);
 }
 
 {id}			{
-	/* Attributes */
-	if(!strcmp(yytext, "uuid")) return UUID_KW;
-	if(!strcmp(yytext, "version")) return VERSION_KW;
-	if(!strcmp(yytext, "interface")) return INTERFACE_KW;
-	if(!strcmp(yytext, "local")) return LOCAL_KW;
-	if(!strcmp(yytext, "pointer_default")) return POINTER_DEFAULT_KW;
-	if(!strcmp(yytext, "object")) return OBJECT_KW;
-	if(!strcmp(yytext, "string")) return STRING_KW;
-	if(!strcmp(yytext, "wire_marshal")) return WIRE_MARSHAL_KW;
-	if(!strcmp(yytext, "transmit_as")) return TRANSMIT_AS_KW;
-	if(!strcmp(yytext, "size_is")) return SIZE_IS_KW;
-	
-	/* Pointer types */
-	if(!strcmp(yytext, "ref")) return REF_KW;
-	if(!strcmp(yytext, "ptr")) return PTR_KW;
-	if(!strcmp(yytext, "unique")) return UNIQUE_KW;
-	
-	/* Direction */
-	if(!strcmp(yytext, "in")) return IN_KW;
-	if(!strcmp(yytext, "out")) return OUT_KW;
-	
-	if(!strcmp(yytext, "cpp_quote")) return CPP_QUOTE_KW;
-	if(!strcmp(yytext, "typedef")) return TYPEDEF_KW;
-	
-	if(!strcmp(yytext, "void")) return VOID_KW;
-	if(!strcmp(yytext, "int")) return INT_KW;
-	if(!strcmp(yytext, "char")) return CHAR_KW;
-	if(!strcmp(yytext, "float")) return FLOAT_KW;
-	if(!strcmp(yytext, "double")) return DOUBLE_KW;
-	if(!strcmp(yytext, "long")) return LONG_KW;
-	if(!strcmp(yytext, "short")) return SHORT_KW;
-	
-	if(!strcmp(yytext, "const")) return CONST_KW;
-	if(!strcmp(yytext, "restrict")) return RESTRICT_KW;
-	
-	if(!strcmp(yytext, "unsigned")) return UNSIGNED_KW;
-	if(!strcmp(yytext, "signed")) return SIGNED_KW;
-
-	if(!strcmp(yytext, "struct")) return STRUCT_KW;
-	if(!strcmp(yytext, "union")) return UNION_KW;
 	yylval = yytext;
-	
-	return IDENTIFIER;
+	return idl_keyword_lookup(yytext);
 }
 
 {c_hex_integer}	{
+	yylval = yytext;
+	return INTEGER_NUMERIC;
+}
+
+{integer}	{
 	yylval = yytext;
 	return INTEGER_NUMERIC;
 }
@@ -227,6 +195,34 @@ other           .
 }
 
 {other}			{
-	fprintf(stderr, "Parse error at line %d near '%s'\n", yylineno, yytext);
-	exit(EXIT_FAILURE);
+	idl_module_error(curmod, yylineno, "Parse error near '%s'", yytext);
+}
+
+%%
+
+static void
+commenteof(void)
+{
+	idl_module_error(curmod, yylineno, "Unexpected end of file while parsing C-style comment");
+}
+
+static void
+read_c_comment(void)
+{
+    register int c;
+
+    /* While not EOF look for end of comment */
+    while ((c = input()))
+    {
+        if (c == '*')
+        {
+            if ((c = input()) == '/')
+                break ;
+            else
+                unput(c) ;
+        }
+    }
+
+    /* Didn't find end comment before EOF, issue error */
+    if (c == 0) commenteof();
 }
