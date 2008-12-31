@@ -92,6 +92,9 @@
 
 struct yyguts_t;
 
+char stringbuf[256];
+char *strp;
+
 static void read_c_comment(struct yyguts_t * yyg, void *scanner);
 
 %}
@@ -100,6 +103,8 @@ static void read_c_comment(struct yyguts_t * yyg, void *scanner);
 %option yylineno
 %option reentrant
 %option bison-bridge
+
+%x str
 
 delim           [ \t\n\f]
 opt_ws          {delim}*
@@ -160,16 +165,50 @@ other           .
 "%"             {return(PERCENT);}
 "~"             {return(TILDE);}
 
-\"[^\"\n]*  	{
-	if (yytext[yyleng-1] == '\\')
-	{
-		yymore(); /* Allow backslashed " within strings, look for next " */
-	}
-	input(yyscanner);
-	yytext++;
-	*yylval = yytext;
-	return STRING;
+\"		{
+			strp = stringbuf;
+			BEGIN(str);
 }
+
+<str>\" {
+			BEGIN(INITIAL);
+			*strp = 0;
+			*yylval = stringbuf;
+			return STRING;
+}
+
+<str>\\[0-7]{1,3} {
+			/* octal escape sequence */
+			int result;
+
+			sscanf( yytext + 1, "%o", &result );
+
+			if( result > 0xff)
+			{
+				idl_module_error(curmod, yyget_lineno(yyscanner), "octal character sequence out of range (%s)", yytext);
+			}
+			*strp = result;
+			strp++;
+}
+
+<str>\\[0-9]+ {
+			idl_module_error(curmod, yyget_lineno(yyscanner), "invalid escape sequence (%s)", yytext);
+        }
+
+<str>\\n  *strp++ = '\n';
+<str>\\t  *strp++ = '\t';
+<str>\\r  *strp++ = '\r';
+<str>\\b  *strp++ = '\b';
+<str>\\f  *strp++ = '\f';
+
+<str>\\(.|\n)  *strp++ = yytext[1];
+
+<str>[^\\\n\"]+        {
+        char *yptr = yytext;
+
+        while ( *yptr )
+                *strp++ = *yptr++;
+        }
 
 "/*"    { read_c_comment(yyg, yyscanner); }
 

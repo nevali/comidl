@@ -1,3 +1,5 @@
+cpp_quote("hello \"world");
+
 [local, uuid(4c75ddae-d485-11dd-96dc-0016cbce1b6a), version(1.0)]
 interface CoTypes
 {
