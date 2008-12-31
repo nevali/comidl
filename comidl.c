@@ -139,8 +139,16 @@ main(int argc, char **argv)
 	ih = NULL;
 	if(defaults)
 	{
-		ih = (char *) malloc(strlen(srcfile + 8));
-		strcpy(ih, srcfile);
+		if(NULL == (t = strrchr(srcfile, '/')))
+		{
+			t = srcfile;
+		}
+		else
+		{
+			t++;
+		}
+		ih = (char *) malloc(strlen(t + 8));
+		strcpy(ih, t);
 		if(strlen(ih) > 4)
 		{
 			s = strchr(ih, 0);

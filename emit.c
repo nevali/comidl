@@ -422,13 +422,11 @@ idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t 
 }
 
 int
-idl_emit_const(idl_module_t *module, idl_interface_t *intf, const char *name, long value)
+idl_emit_const(idl_module_t *module, idl_symdef_t *symdef)
 {
-	(void) intf;
-	
 	if(1 == idl_emit_cxxinc_open(module))
 	{
-		fprintf(module->hout, "# define %s %ld\n", name, value);
+		fprintf(module->hout, "# define %s %ld\n", symdef->ident, symdef->constval);
 	}
 	return 0;
 }

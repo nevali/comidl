@@ -206,6 +206,7 @@ struct idl_symdef_struct
 	/* Attributes */
 	int local;
 	/* Type  */
+	idl_builtintype_t const_type;
 	idl_typedecl_t *decl;
 	/* Declarator */
 	size_t ndeclarator;
@@ -213,11 +214,14 @@ struct idl_symdef_struct
 	/* Identifier */
 	idl_ident_t ident;
 	/* Implied attributes */
+	/* For methods and function pointers, the parameter lists */
+	int is_fp;
+	idl_symlist_t fp_params;
+	/* Array attributes */
 	int is_array;
 	ssize_t array_len;
-	int is_fp;
-	/* For methods and function pointers, the parameter lists */
-	idl_symlist_t fp_params;
+	/* For constants, the constant value. Constants may only be 'small' or 'long' */
+	long constval;
 	/* For chained symbols, the next symbol in the chain */
 	idl_symdef_t *nextsym;
 };
@@ -289,5 +293,6 @@ extern int idl_emit_done(idl_module_t *module);
 extern int idl_emit_cppquote(idl_module_t *module, const char *quote);
 extern int idl_emit_typedef(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symdef);
+extern int idl_emit_const(idl_module_t *module, idl_symdef_t *symdef);
 
 #endif /* !P_COMIDL_H_ */

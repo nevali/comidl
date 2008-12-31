@@ -222,7 +222,7 @@ idl_module_typedecl_pop(idl_module_t *module)
 }
 
 idl_symdef_t *
-idl_module_symdef_create(idl_module_t *module, idl_symlist_t *symlist, idl_typedecl_t *typedecl)
+idl_module_symdef_create(idl_module_t *module, idl_symlist_t *symlist, /*[optional]*/ idl_typedecl_t *typedecl)
 {
 	idl_symdef_t *p;
 
@@ -270,6 +270,10 @@ idl_module_symdef_done(idl_module_t *module, idl_symlist_t *symlist, idl_symdef_
 	else
 	{
 		fprintf(stderr, "WARNING: module->cursym (%s) is not sym (%s) in idl_module_symdef_done\n", module->cursym->ident, sym->ident);
+	}
+	if(sym->type == SYM_CONST)
+	{
+		idl_emit_const(module, sym);
 	}
 	return 0;
 }

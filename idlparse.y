@@ -539,23 +539,38 @@ typedef_decl:
 	;
 	
 const_decl:
-		CONST_KW const_type IDENTIFIER EQUAL INTEGER_NUMERIC SEMI
+		CONST_KW const_init const_type simple_declarator EQUAL const_value SEMI
 		{
-			idl_emit_const(curmod, curmod->curintf, $3, $5);
+			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
+		}
+	;
+	
+const_init:
+		symdef_init
+		{
+			curmod->cursym->type = SYM_CONST;
 		}
 	;
 	
 const_type:
 		SMALL_KW
 		{
-			$$ = $1;
+			curmod->cursym->const_type = TYPE_INT16;
 		}
 	|	LONG_KW
 		{
-			$$ = $1;
+			curmod->cursym->const_type = TYPE_INT32;
 		}
 	;
-
+	
+const_value:
+		INTEGER_NUMERIC
+		{
+			char *dummy;
+			
+			curmod->cursym->constval = strtol($1, &dummy, 0);
+		}
+	
 method_decl:
 		method_attributes type_decl method_init LPAREN fp_args_init possible_arg_list RPAREN SEMI
 		{
@@ -663,7 +678,7 @@ declarator:
 		}
 	;
 
-direct_declarator:
+simple_declarator:
 		IDENTIFIER
 		{
 			strncpy(curmod->cursym->ident, $1, IDL_IDENT_MAX);
@@ -671,11 +686,15 @@ direct_declarator:
 			curmod->cursym->declarator[curmod->cursym->ndeclarator] = DECL_IDENT;
 			curmod->cursym->ndeclarator++;
 		}
-	|	LPAREN fnpointer_init declarator RPAREN
+	;
+	
+direct_declarator:
+		LPAREN fnpointer_init declarator RPAREN
 		{
 			curmod->cursym->declarator[curmod->cursym->ndeclarator] = DECL_RBRACKET;
 			curmod->cursym->ndeclarator++;
 		}
+	|	simple_declarator
 	|	error
 		{
 			fprintf(stderr, "Error in direct_declarator\n");
