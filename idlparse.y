@@ -309,6 +309,7 @@ identifier:
 		IDENTIFIER { $$ = $1; }
 	|	UUID_KW { $$ = $1; }
 	|	MODE_KW { $$ = $1; }
+	|	STRING_KW { $$ = $1; }
 	;
 
 interface_ancestor:
@@ -868,6 +869,7 @@ type_attr:
 	|	IID_IS_KW LPAREN identifier RPAREN
 	|	IN_KW
 	|	OUT_KW
+	|	INOUT_KW
 	|	V1_STRUCT_KW
 	;
 
