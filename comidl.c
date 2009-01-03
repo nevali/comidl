@@ -73,6 +73,9 @@ version(void)
 	fprintf(stderr, "Copyright (c) 1989 Open Software Foundation, Inc.\n");
 	fprintf(stderr, "Copyright (c) 1989 Hewlett-Packard Company\n");
 	fprintf(stderr, "Copyright (c) 1989 Digital Equipment Corporation\n");
+	#ifndef HAVE_GETOPT
+		fprintf(stderr, "Copyright (c) 1987, 1993, 1994\nThe Regents of the University of California.  All rights reserved.\n");
+	#endif
 	fprintf(stderr, "\nhttp://libcom.googlecode.com/\n");
 }
 
