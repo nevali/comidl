@@ -70,6 +70,7 @@ idl_emit_cxxinc_open(idl_module_t *module)
 				fprintf(stderr, "%s: %s: %s\n", progname, module->houtname, strerror(errno));
 				exit(EXIT_FAILURE);
 			}
+			fprintf(module->hout, "/* Automatically generated from %s by %s */\n\n", module->shortname, progname);
 			return 1;
 		}
 		return 0;
@@ -115,7 +116,6 @@ idl_emit_cxxinc_begin(idl_module_t *module)
 static void
 idl_emit_cxxinc_write_header(idl_module_t *module)
 {
-	fprintf(module->hout, "/* Automatically generated from %s by %s */\n\n", module->shortname, progname);
 	fprintf(module->hout, "#ifndef %s\n", module->hmacro);
 	fprintf(module->hout, "# define %s\n", module->hmacro);
 	if(0 == nodefinc && 0 == module->nodefinc)
@@ -232,7 +232,7 @@ idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 			fprintf(f, "double ");
 			break;
 		case TYPE_BOOLEAN:
-			fprintf(f, "boolean ");
+			fprintf(f, "uint8_t ");
 			break;
 		case TYPE_STRUCT:
 			fprintf(f, "struct %s ", decl->tag);
