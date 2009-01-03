@@ -36,7 +36,9 @@
 
 #include "p_comidl.h"
 
+static int idl_emit_begin(idl_module_t *module);
 static int idl_emit_cxxinc_open(idl_module_t *module);
+static int idl_emit_cxxinc_begin(idl_module_t *module);
 static void idl_emit_cxxinc_close(idl_module_t *module);
 static void idl_emit_cxxinc_write_header(idl_module_t *module);
 static void idl_emit_cxxinc_write_footer(idl_module_t *module);
@@ -45,6 +47,16 @@ static void idl_emit_cxxinc_write_indent(idl_module_t *module);
 static void idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl);
 static void idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt);
 static int idl_emit_write_sym(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt);
+
+static int
+idl_emit_begin(idl_module_t *module)
+{
+	if(MODE_UNSPEC == module->mode)
+	{
+		module->mode = MODE_COM;
+	}
+	return 0;
+}
 
 static int
 idl_emit_cxxinc_open(idl_module_t *module)
@@ -58,7 +70,6 @@ idl_emit_cxxinc_open(idl_module_t *module)
 				fprintf(stderr, "%s: %s: %s\n", progname, module->houtname, strerror(errno));
 				exit(EXIT_FAILURE);
 			}
-			idl_emit_cxxinc_write_header(module);
 			return 1;
 		}
 		return 0;
@@ -71,10 +82,34 @@ idl_emit_cxxinc_close(idl_module_t *module)
 {
 	if(NULL != module->hout)
 	{
-		idl_emit_cxxinc_write_footer(module);
+		if(0 != module->headerwritten)
+		{
+			idl_emit_cxxinc_write_footer(module);
+		}
 		fclose(module->hout);
 		module->hout = NULL;
 	}
+}
+
+static int
+idl_emit_cxxinc_begin(idl_module_t *module)
+{
+	int r;
+	
+	if(-1 == idl_emit_begin(module))
+	{
+		return -1;
+	}
+	if(1 != (r = idl_emit_cxxinc_open(module)))
+	{
+		return r;
+	}
+	if(0 == module->headerwritten)
+	{
+		idl_emit_cxxinc_write_header(module);
+		module->headerwritten = 1;
+	}
+	return 1;
 }
 
 static void
@@ -85,18 +120,19 @@ idl_emit_cxxinc_write_header(idl_module_t *module)
 	fprintf(module->hout, "# define %s\n", module->hmacro);
 	if(0 == nodefinc && 0 == module->nodefinc)
 	{
-		fprintf(module->hout, "\n# include \"DCE-RPC/idlbase.h\"\n");
-	}
-/*	fprintf(module->hout, "\n"
-		"# if defined(__cplusplus)\n"
-		"extern \"C\" {\n"
-		"# endif\n\n"
-		); */
-	if(0 == nodefinc && 0 == module->nodefinc &&
-		0 == nodefimports && 0 == module->nodefimports)
-	{
-		/* This corresponds to the default import of nbase.idl */
-		fprintf(module->hout, "# include \"DCE-RPC/nbase.h\"\n");
+		if(MODE_RPC == module->mode)
+		{
+				fprintf(module->hout, "\n# include \"DCE-RPC/idlbase.h\"\n");
+				if(0 == nodefimports && 0 == module->nodefimports)
+				{
+					/* This corresponds to the default import of nbase.idl */
+					fprintf(module->hout, "# include \"DCE-RPC/nbase.h\"\n");
+				}
+		}
+		else if(MODE_COM == module->mode)
+		{
+			fprintf(module->hout, "\n# include \"COM/COM.h\"\n");
+		}
 	}
 	fputc('\n', module->hout);
 }
@@ -147,6 +183,10 @@ idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 	
 	(void) module;
 	
+	if(NULL == decl || TYPE_NONE == decl->builtin_type)
+	{
+		return;
+	}
 	if(decl->modifiers & TYPEMOD_CONST)
 	{
 		fprintf(f, "const ");
@@ -249,7 +289,8 @@ idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 				fprintf(f, "int64_t ");
 			}
 			break;
-			
+		default:
+			break;
 	}
 	if(decl->has_symlist)
 	{
@@ -262,8 +303,18 @@ idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 		{
 			idl_emit_cxxinc_write_indent(module);
 			c += idl_emit_write_sym(module, f, decl->symlist.defs[c], NULL);
-			fputc(';', module->hout);
-			fputc('\n', module->hout);
+			if(TYPE_ENUM == decl->builtin_type)
+			{
+				if(c < decl->symlist.ndefs)
+				{
+					fputc(',', f);
+				}
+			}
+			else
+			{
+				fputc(';', f);
+			}
+			fputc('\n', f);
 		}
 		module->houtdepth--;
 		idl_emit_cxxinc_write_indent(module);
@@ -279,6 +330,20 @@ idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const
 
 	(void) module;
 	
+	if(SYM_ENUM == symdef->type)
+	{
+		/* enum values are handled slightly differently */
+		idl_emit_cxxinc_write_indent(module);
+		if(symdef->noval)
+		{
+			fprintf(f, "%s", symdef->ident);
+		}
+		else
+		{
+			fprintf(f, "%s = %ld", symdef->ident, (long) symdef->constval);
+		}
+		return;
+	}
 	for(c = 0; c < symdef->ndeclarator; c++)
 	{
 		switch(symdef->declarator[c])
@@ -402,7 +467,7 @@ idl_emit_typedef(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symd
 {
 	(void) intf;
 	
-	if(1 == idl_emit_cxxinc_open(module))
+	if(1 == idl_emit_cxxinc_begin(module))
 	{
 		fprintf(module->hout, "typedef ");
 		idl_emit_write_sym(module, module->hout, symdef, NULL);
@@ -418,7 +483,7 @@ idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t 
 {
 	if(1 == intf->local && 0 == intf->object)
 	{
-		if(1 == idl_emit_cxxinc_open(module))
+		if(1 == idl_emit_cxxinc_begin(module))
 		{
 			fprintf(module->hout, "RPC_CEXPORT ");
 			idl_emit_write_sym(module, module->hout, symdef, "RPC_SYM(%s)");
@@ -433,7 +498,7 @@ idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t 
 int
 idl_emit_const(idl_module_t *module, idl_symdef_t *symdef)
 {
-	if(1 == idl_emit_cxxinc_open(module))
+	if(1 == idl_emit_cxxinc_begin(module))
 	{
 		fprintf(module->hout, "#  define %s %ld\n", symdef->ident, symdef->constval);
 	}
@@ -448,7 +513,7 @@ idl_emit_intf_prologue(idl_module_t *module, idl_interface_t *intf)
 	FILE *f;
 	unsigned major, minor;
 	
-	if(1 == idl_emit_cxxinc_open(module))
+	if(1 == idl_emit_cxxinc_begin(module))
 	{
 		f = module->hout;
 		major = (unsigned int) (intf->version >> 16);
@@ -477,7 +542,7 @@ idl_emit_intf_epilogue(idl_module_t *module, idl_interface_t *intf)
 	size_t c;
 	int first;
 	
-	if(1 == idl_emit_cxxinc_open(module))
+	if(1 == idl_emit_cxxinc_begin(module))
 	{
 		f = module->hout;
 		major = (unsigned int) (intf->version >> 16);

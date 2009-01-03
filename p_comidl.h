@@ -85,6 +85,17 @@ typedef struct idl_guid_struct idl_guid_t;
 
 typedef enum
 {
+	MODE_UNSPEC = 0,
+	MODE_RPC,
+	MODE_COM,
+	MODE_MSCOM,
+	MODE_DCERPC,
+	MODE_SUNRPC,
+	MODE_XPCOM
+} idl_mode_t;
+
+typedef enum
+{
 	BLOCK_UNSPEC = 0,
 	BLOCK_INTERFACE,
 	BLOCK_MODULE,
@@ -102,6 +113,7 @@ typedef enum
 
 typedef enum
 {
+	TYPE_NONE,
 	TYPE_VOID,
 	TYPE_CHAR,
 	TYPE_SHORT,
@@ -147,7 +159,8 @@ typedef enum
 	SYM_METHOD,
 	SYM_PARAM,
 	SYM_MEMBER,
-	SYM_CONST
+	SYM_CONST,
+	SYM_ENUM
 } idl_symtype_t;
 
 struct idl_guid_struct
@@ -176,6 +189,7 @@ struct idl_module_struct
 	FILE *hout;
 	char *hmacro; /* e.g., COMIDL_WTYPES_H_ */
 	size_t houtdepth; /* indenting level */
+	idl_mode_t mode; /* output mode */
 	idl_guid_t const ** guids; /* GUIDs defined by this module */
 	size_t nguids;
 	idl_interface_t **interfaces; /* interfaces defined by this module */
@@ -188,6 +202,7 @@ struct idl_module_struct
 	idl_symdef_t *cursym;
 	int nodefinc;
 	int nodefimports;
+	int headerwritten;
 };
 
 struct idl_interface_struct
@@ -228,6 +243,7 @@ struct idl_symdef_struct
 	ssize_t array_len;
 	/* For constants, the constant value. Constants may only be 'small' or 'long' */
 	long constval;
+	int noval; /* Enums with no explicit value */
 	/* For chained symbols, the next symbol in the chain */
 	idl_symdef_t *nextsym;
 };
@@ -282,6 +298,7 @@ extern int idl_module_symdef_link(idl_module_t *module, idl_symlist_t *symlist, 
 extern idl_symdef_t *idl_module_symdef_lookup(idl_module_t *module, idl_symlist_t *start, const char *name, int recurse);
 extern int idl_module_symlist_push(idl_module_t *module, idl_symlist_t *symlist);
 extern int idl_module_symlist_pop(idl_module_t *module, idl_symlist_t *symlist);
+extern int idl_module_set_mode(idl_module_t *module, int line, const char *mode);
 
 extern idl_interface_t *idl_intf_create(idl_module_t *module);
 extern int idl_intf_done(idl_interface_t *intf);

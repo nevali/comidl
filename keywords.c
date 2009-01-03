@@ -100,6 +100,7 @@ static struct idl_keyword_struct keywords[] =
 	{ "max_is",  MAX_IS_KW },
 	{ "maybe", MAYBE_KW },
 	{ "min_is", MIN_IS_KW },
+	{ "mode", MODE_KW}, /* libcom */
 	{ "module", MODULE_KW }, /* MSRPC */
 	{ "mutable", MUTABLE_KW }, /* MSRPC */
 	

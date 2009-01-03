@@ -92,7 +92,7 @@
 
 struct yyguts_t;
 
-char stringbuf[256];
+char shortbuf[256], stringbuf[512];
 char *strp;
 
 static void read_c_comment(struct yyguts_t * yyg, void *scanner);
@@ -213,27 +213,37 @@ other           .
 "/*"    { read_c_comment(yyg, yyscanner); }
 
 {uuid}			{
-	*yylval = yytext;
+	strncpy(shortbuf, yytext, sizeof(shortbuf));
+	shortbuf[sizeof(shortbuf)-1] = 0;
+	*yylval = shortbuf;
 	return(UUID);
 }
 
 {id}			{
-	*yylval = yytext;
+	strncpy(shortbuf, yytext, sizeof(shortbuf));
+	shortbuf[sizeof(shortbuf)-1] = 0;
+	*yylval = shortbuf;
 	return idl_keyword_lookup(yytext);
 }
 
 {c_hex_integer}	{
-	*yylval = yytext;
+	strncpy(shortbuf, yytext, sizeof(shortbuf));
+	shortbuf[sizeof(shortbuf)-1] = 0;
+	*yylval = shortbuf;
 	return INTEGER_NUMERIC;
 }
 
 {integer}	{
-	*yylval = yytext;
+	strncpy(shortbuf, yytext, sizeof(shortbuf));
+	shortbuf[sizeof(shortbuf)-1] = 0;
+	*yylval = shortbuf;
 	return INTEGER_NUMERIC;
 }
 
 {float}			{
-	*yylval = yytext;
+	strncpy(shortbuf, yytext, sizeof(shortbuf));
+	shortbuf[sizeof(shortbuf)-1] = 0;
+	*yylval = shortbuf;
 	return FLOAT_NUMERIC;
 }
 

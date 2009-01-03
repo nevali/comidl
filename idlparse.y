@@ -161,6 +161,7 @@ yyerror(void *scanner, char *s)
 %token MAX_IS_KW
 %token MAYBE_KW
 %token MIN_IS_KW
+%token MODE_KW
 %token MODULE_KW
 %token MUTABLE_KW
 
@@ -307,6 +308,7 @@ interface_start:
 identifier:
 		IDENTIFIER { $$ = $1; }
 	|	UUID_KW { $$ = $1; }
+	|	MODE_KW { $$ = $1; }
 	;
 
 interface_ancestor:
@@ -403,6 +405,10 @@ interface_attr:
         {
 			$$ = $3;
         }
+	|	MODE_KW LPAREN identifier RPAREN
+		{
+			idl_module_set_mode(curmod, yyget_lineno(scanner), $3);
+		}
     ;
 
 pointer_class:
@@ -935,6 +941,10 @@ type:
 		{
 			curmod->curtype->builtin_type = TYPE_INT16;
 		}
+	|	BOOLEAN_KW
+		{
+			curmod->curtype->builtin_type = TYPE_BOOLEAN;
+		}
 	|	byte
 		{
 			curmod->curtype->builtin_type = TYPE_INT8;
@@ -958,8 +968,11 @@ type:
 		{
 			idl_intf_symlist_pop(curmod->curintf, curmod->cursymlist);
 		}
-	|	UNION_KW identifier
-	|	ENUM_KW identifier
+	|	enum LBRACE enum_body RBRACE
+		{
+			curmod->curtype->has_symlist = 1;
+			idl_intf_symlist_pop(curmod->curintf, curmod->cursymlist);
+		}
 	|	identifier
 		{
 			curmod->curtype->builtin_type = TYPE_DEF;
@@ -1002,6 +1015,23 @@ struct:
 		}
 	;
 
+enum:
+		ENUM_KW
+		{
+			curmod->curtype->builtin_type = TYPE_ENUM;
+			curmod->curtype->symlist.symtype = SYM_ENUM;
+			idl_intf_symlist_push(curmod->curintf, &(curmod->curtype->symlist));
+		}
+	|	ENUM_KW identifier
+		{
+			strncpy(curmod->curtype->tag, $2, IDL_IDENT_MAX);
+			curmod->curtype->tag[IDL_IDENT_MAX] = 0;
+			curmod->curtype->builtin_type = TYPE_ENUM;
+			curmod->curtype->symlist.symtype = SYM_ENUM;
+			idl_intf_symlist_push(curmod->curintf, &(curmod->curtype->symlist));
+		}
+	;
+	
 possible_arg_list:
 		arg_list
 	|	VOID_KW
@@ -1035,6 +1065,25 @@ struct_union_member:
 		}
 	;
 
+enum_body:
+		enum_body COMMA enum_member
+	|	enum_member
+	;
+	
+enum_member:
+		symdef_init simple_declarator EQUAL const_value
+		{
+			curmod->cursym->decl = NULL;
+			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
+		}
+	|	symdef_init simple_declarator
+		{
+			curmod->cursym->decl = NULL;
+			curmod->cursym->noval = 1;
+			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
+		}
+	;
+	
 cpp_quote:
 		CPP_QUOTE_KW LPAREN STRING RPAREN extraneous_semi
 		{
