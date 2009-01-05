@@ -638,20 +638,24 @@ method_attr:
 	;
 	
 	
-method_init: 
-		identifier
+method_init:
+		methodspec_begin declarator 
+		{
+/*			curmod->cursym->declarator[curmod->cursym->ndeclarator] = DECL_IDENT;
+			curmod->cursym->ndeclarator++;
+			strncpy(curmod->cursym->ident, $1, IDL_IDENT_MAX);
+			curmod->cursym->ident[IDL_IDENT_MAX] = 0; */
+			/* Inherit attributes from the interface */
+		}
+	;
+
+methodspec_begin:
 		{
 			curmod->cursymlist->symtype = SYM_METHOD;
 			idl_intf_symdef_create(curmod->curintf, curmod->curtype);
-			curmod->cursym->declarator[curmod->cursym->ndeclarator] = DECL_IDENT;
-			curmod->cursym->ndeclarator++;
-			strncpy(curmod->cursym->ident, $1, IDL_IDENT_MAX);
-			curmod->cursym->ident[IDL_IDENT_MAX] = 0;
-			/* Inherit attributes from the interface */
 			curmod->cursym->local = curmod->curintf->local;
 		}
-	;
-	
+
 typedef_init:
 		{
 			curmod->cursymlist->symtype = SYM_TYPEDEF;
