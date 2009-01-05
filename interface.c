@@ -271,3 +271,10 @@ idl_intf_write_typedef(idl_interface_t *intf, idl_symdef_t *symdef)
 {
 	return idl_emit_typedef(intf->module, intf, symdef);
 }
+
+/* Write a type definition (e.g., a struct) */
+int
+idl_intf_write_type(idl_interface_t *intf, idl_typedecl_t *decl)
+{
+	return idl_emit_type(intf->module, intf, decl);
+}

@@ -75,6 +75,7 @@ typedef struct idl_interface_struct idl_interface_t;
 typedef struct idl_symlist_struct idl_symlist_t;
 typedef struct idl_symdef_struct idl_symdef_t;
 typedef struct idl_typedecl_struct idl_typedecl_t;
+typedef struct idl_expr_struct idl_expr_t;
 
 typedef struct idl_guid_struct idl_guid_t;
 
@@ -155,8 +156,38 @@ typedef enum
 	SYM_PARAM,
 	SYM_MEMBER,
 	SYM_CONST,
-	SYM_ENUM
+	SYM_ENUM,
+	SYM_STRUCT
 } idl_symtype_t;
+
+typedef enum
+{
+	EXPR_UNSPEC = 0,
+	EXPR_CONST,
+	EXPR_SYM,
+	EXPR_ADD,
+	EXPR_SUB,
+	EXPR_DIV,
+	EXPR_MUL,
+	EXPR_MOD,
+	EXPR_AND,
+	EXPR_BITAND,
+	EXPR_OR,
+	EXPR_BITOR,
+	EXPR_XOR,
+	EXPR_EQUALS,
+	EXPR_NOTEQUALS,
+	EXPR_LESSEQUALS,
+	EXPR_GTEQUALS,
+	EXPR_LESS,
+	EXPR_GT,
+	EXPR_BRACKET,
+	EXPR_BITNOT,
+	EXPR_NOT,
+	EXPR_IFELSE,
+	EXPR_LSHIFT,
+	EXPR_RSHIFT
+} idl_exprtype_t;
 
 struct idl_guid_struct
 {
@@ -237,7 +268,7 @@ struct idl_symdef_struct
 	int is_array;
 	ssize_t array_len;
 	/* For constants, the constant value. Constants may only be 'small' or 'long' */
-	long constval;
+	idl_expr_t *constval;
 	int noval; /* Enums with no explicit value */
 	/* For chained symbols, the next symbol in the chain */
 	idl_symdef_t *nextsym;
@@ -255,6 +286,15 @@ struct idl_typedecl_struct
 	/* Symbol list for enums, structs and unions */
 	int has_symlist;
 	idl_symlist_t symlist;
+};
+
+struct idl_expr_struct
+{
+	idl_exprtype_t type;
+	int isconst;
+	long constval;
+	const idl_expr_t *left, *right, *alt;
+	idl_symdef_t *symdef;
 };
 
 extern idl_module_t *curmod;
@@ -323,12 +363,13 @@ extern int idl_intf_method_inherited(idl_interface_t *intf, const char *methodna
 extern int idl_intf_write_typedef(idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_intf_write_method(idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_intf_write_cppquote(idl_interface_t *intf, const char *s);
-
+extern int idl_intf_write_type(idl_interface_t *intf, idl_typedecl_t *decl);
 
 extern int idl_emit_init(idl_module_t *module);
 extern int idl_emit_done(idl_module_t *module);
 extern int idl_emit_cppquote(idl_module_t *module, const char *quote);
 extern int idl_emit_typedef(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symdef);
+extern int idl_emit_type(idl_module_t *module, idl_interface_t *intf, idl_typedecl_t *decl);
 extern int idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_emit_const(idl_module_t *module, idl_symdef_t *symdef);
 extern int idl_emit_intf_prologue(idl_module_t *module, idl_interface_t *intf);
@@ -338,5 +379,12 @@ extern int idl_incpath_reset(void);
 extern int idl_incpath_add_includedir(const char *path);
 extern int idl_incpath_add_frameworkdir(const char *path);
 extern int idl_incpath_locate(char *buf, size_t buflen, const char *path);
+
+extern idl_expr_t *idl_expr_create(void);
+extern idl_expr_t *idl_expr_create_intconst(long value);
+extern idl_expr_t *idl_expr_create_pair(const idl_expr_t *left, idl_exprtype_t op, const idl_expr_t *right);
+extern idl_expr_t *idl_expr_create_bracket(const idl_expr_t *expr);
+extern idl_expr_t *idl_expr_create_prefix(idl_exprtype_t op, const idl_expr_t *expr);
+extern idl_expr_t *idl_expr_create_sym(idl_interface_t *curintf, const char *sym);
 
 #endif /* !P_COMIDL_H_ */

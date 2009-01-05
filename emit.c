@@ -43,7 +43,7 @@ static void idl_emit_cxxinc_close(idl_module_t *module);
 static void idl_emit_cxxinc_write_header(idl_module_t *module);
 static void idl_emit_cxxinc_write_footer(idl_module_t *module);
 static void idl_emit_cxxinc_write_indent(idl_module_t *module);
-
+static void idl_emit_write_expr(idl_module_t *module, FILE *f, const idl_expr_t *expr);
 static void idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl);
 static void idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt, const char *paramprefix, const char *voidstr);
 static int idl_emit_write_sym(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt);
@@ -281,6 +281,68 @@ idl_emit_cxxinc_write_method_macros(idl_module_t *module, FILE *f, idl_interface
 }
 
 static void
+idl_emit_write_expr(idl_module_t *module, FILE *f, const idl_expr_t *expr)
+{
+	if(EXPR_CONST == expr->type)
+	{
+		fprintf(f, "%ld", (long) expr->constval);
+		return;
+	}
+	if(EXPR_SYM == expr->type)
+	{
+		fprintf(f, "%s", expr->symdef->ident);
+	}
+	if(EXPR_BRACKET == expr->type)
+	{
+		fputc('(', f);
+	}
+	if(NULL != expr->left)
+	{
+		idl_emit_write_expr(module, f, expr->left);
+	}
+	switch(expr->type)
+	{
+		case EXPR_ADD: fputc('+', f); break;
+		case EXPR_SUB: fputc('-', f); break;
+		case EXPR_MUL: fputc('*', f); break;
+		case EXPR_DIV: fputc('/', f); break;
+		case EXPR_MOD: fputc('%', f); break;
+		case EXPR_AND: fputc('&', f); fputc('&', f); break;
+		case EXPR_BITAND: fputc('&', f); break;
+		case EXPR_OR: fputc('|', f); fputc('|', f); break;
+		case EXPR_BITOR: fputc('|', f); break;
+		case EXPR_XOR: fputc('^', f); break;
+		case EXPR_EQUALS: fputc('=', f); fputc('=', f); break;
+		case EXPR_NOTEQUALS: fputc('!', f); fputc('=', f); break;
+		case EXPR_LESSEQUALS: fputc('<', f); fputc('=', f); break;
+		case EXPR_GTEQUALS: fputc('>', f); break;
+		case EXPR_LESS: fputc('<', f); break;
+		case EXPR_GT: fputc('>', f); break;
+		case EXPR_BITNOT: fputc('~', f); break;
+		case EXPR_NOT: fputc('!', f); break;
+		case EXPR_LSHIFT: fputc('<', f); fputc('<', f); break;
+		case EXPR_RSHIFT: fputc('>', f); fputc('>', f); break;
+		case EXPR_IFELSE: fputc('?', f); break;
+		case EXPR_BRACKET:
+		case EXPR_UNSPEC:
+		case EXPR_CONST:
+		case EXPR_SYM:
+			/* nothing */
+			break;
+	}
+	if(NULL != expr->right)
+	{
+		idl_emit_write_expr(module, f, expr->right);
+	}
+	
+	if(EXPR_BRACKET == expr->type)
+	{
+		fputc(')', f);
+	}
+}
+
+
+static void
 idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 {
 	size_t c;
@@ -452,7 +514,8 @@ idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const
 		}
 		else
 		{
-			fprintf(f, "%s = %ld", symdef->ident, (long) symdef->constval);
+			fprintf(f, "%s = ", symdef->ident);
+			idl_emit_write_expr(module, f, symdef->constval);
 		}
 		return;
 	}
@@ -590,6 +653,21 @@ idl_emit_typedef(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symd
 	return 0;
 }
 
+int
+idl_emit_type(idl_module_t *module, idl_interface_t *intf, idl_typedecl_t *decl)
+{
+	(void) intf;
+	
+	if(1 == idl_emit_cxxinc_begin(module))
+	{
+		idl_emit_write_type(module, module->hout, decl);
+		fputc(';', module->hout);
+		fputc('\n', module->hout);
+	}
+	return 0;
+}
+
+
 /* Write a local method declaration to the generated header */
 int
 idl_emit_local_method(idl_module_t *module, idl_interface_t *intf, idl_symdef_t *symdef)
@@ -613,7 +691,9 @@ idl_emit_const(idl_module_t *module, idl_symdef_t *symdef)
 {
 	if(1 == idl_emit_cxxinc_begin(module))
 	{
-		fprintf(module->hout, "#  define %s %ld\n", symdef->ident, symdef->constval);
+		fprintf(module->hout, "#  define %s ", symdef->ident);
+		idl_emit_write_expr(module, module->hout, symdef->constval);
+		fputc('\n', module->hout);
 	}
 	return 0;
 }

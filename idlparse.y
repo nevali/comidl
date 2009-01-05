@@ -312,6 +312,9 @@ identifier:
 	|	STRING_KW { $$ = $1; }
 	|	LOCAL_KW { $$ = $1; }
 	|	OBJECT_KW { $$ = $1; }
+	|	IN_KW { $$ = $1; }
+	|	OUT_KW { $$ = $1; }
+	|	INOUT_KW { $$ = $1; }
 	;
 
 interface_ancestor:
@@ -524,6 +527,7 @@ export:
 	|	typedef_decl
 	|	method_decl
 	|	const_decl
+	|	struct_decl
 	|	error
 		{
 			fprintf(stderr, "Parse error during exports\n");
@@ -569,6 +573,22 @@ const_decl:
 			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
 		}
 	;
+
+struct_decl: 
+		struct_init LBRACE struct_body RBRACE SEMI
+		{
+			idl_symdef_t *sym;
+
+			curmod->curtype->has_symlist = 1;
+			idl_intf_symlist_pop(curmod->curintf, curmod->cursymlist);
+			sym = idl_intf_symdef_create(curmod->curintf, curmod->curtype);
+			curmod->cursym->type = SYM_STRUCT;
+			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
+			idl_module_typedecl_pop(curmod);
+			idl_intf_write_type(curmod->curintf, sym->decl);
+		}
+	;
+
 	
 const_init:
 		symdef_init
@@ -589,25 +609,15 @@ const_type:
 	;
 	
 const_value:
-		INTEGER_NUMERIC
+		expression
 		{
-			char *dummy;
+			idl_expr_t *expr = (idl_expr_t *) $1;
 			
-			curmod->cursym->constval = strtol($1, &dummy, 0);
-		}
-	|	IDENTIFIER
-		{
-			idl_symdef_t *p;
-			
-			if(NULL == (p = idl_intf_symdef_lookup(curmod->curintf, $1)))
+			if(0 == expr->isconst)
 			{
-				idl_module_error(curmod, yyget_lineno(scanner), "undeclared identifier '%s' in constant expression", $1);
+				idl_module_error(curmod, yyget_lineno(scanner), "expression is not constant");
 			}
-			if(p->type != SYM_CONST)
-			{
-				idl_module_error(curmod, yyget_lineno(scanner), "identifier '%s' in constant expression is not a constant", $1);
-			}
-			curmod->cursym->constval = p->constval;
+			curmod->cursym->constval = expr;
 		}
 	
 method_decl:
@@ -666,6 +676,7 @@ typedef_init:
 pointer_ident_decl:
 		symdef_init declarator LPAREN fp_args_init possible_arg_list RPAREN possible_array
 		{
+			fprintf(stderr, "finished %s\n", curmod->cursym->ident);
 			idl_intf_symlist_pop(curmod->curintf, curmod->cursymlist);
 		}
 	|	symdef_init declarator possible_array
@@ -1011,6 +1022,18 @@ byte:
 		}
 	;
 
+struct_init:
+		STRUCT_KW symdef_init identifier
+		{
+			idl_module_typedecl_push(curmod);
+			strncpy(curmod->curtype->tag, $3, IDL_IDENT_MAX);
+			curmod->curtype->tag[IDL_IDENT_MAX] = 0;
+			curmod->curtype->builtin_type = TYPE_STRUCT;
+			curmod->curtype->symlist.symtype = SYM_MEMBER;
+			idl_intf_symlist_push(curmod->curintf, &(curmod->curtype->symlist));
+		}
+	;
+	
 struct:
 		STRUCT_KW
 		{
@@ -1084,9 +1107,10 @@ enum_body:
 	;
 	
 enum_member:
-		symdef_init simple_declarator EQUAL const_value
+		symdef_init simple_declarator EQUAL expression
 		{
 			curmod->cursym->decl = NULL;
+			curmod->cursym->constval = (idl_expr_t *) $4;
 			idl_intf_symdef_done(curmod->curintf, curmod->cursym);
 		}
 	|	symdef_init simple_declarator
@@ -1123,37 +1147,106 @@ uuid:
 		}
 	;
 
+/* XXX FIXME:
+ *     The rules of precedence aren't adhered to in any sane way here. This
+ *     isn't a problem for header generation, but will be for stubs.
+ */
 expression:
-		prefix_operator expr_value
-	|	prefix_operator expr_value postfix_operator expression
+		expr_value
+		{
+			$$ = $1;
+		}
+	|	prefix_expression
+		{
+			$$ = $1;
+		}
+	|	postfix_expression
+		{
+			$$ = $1;
+		}
 	|	expression QUESTION expression COLON expression
 	|	LPAREN expression RPAREN
+		{
+			$$ = (char *) idl_expr_create_bracket((const idl_expr_t *) $2);
+		}
 	;
 
 expr_value:
 		identifier
+		{
+			$$ = (char *) idl_expr_create_sym(curmod->curintf, $1);
+		}
 	|	INTEGER_NUMERIC
+		{
+			char *dummy;
+		
+			$$ = (char *) idl_expr_create_intconst(strtol($1, &dummy, 0));
+		}
 	|	FLOAT_NUMERIC
 	;
 
-prefix_operator:
-		NOT
-	|	TILDE
-	|	/* nothing */
+prefix_expression:
+		NOT expression
+		{
+			$$ = (char *) idl_expr_create_prefix(EXPR_NOT, (const idl_expr_t *) $1);
+		}
+	|	TILDE expression
+		{
+			$$ = (char *) idl_expr_create_prefix(EXPR_BITNOT, (const idl_expr_t *) $1);
+		}
 	;
 
-postfix_operator:
-		PLUS
-	|	MINUS
-	|	SLASH
-	|	STAR
-	|	PERCENT
-	|	CARET
-	|	LANGLEANGLE
-	|	RANGLEANGLE
-	|	AMP
-	|	AMPAMP
-	|	BAR
-	|	BARBAR
-	|	NOTEQUAL
+postfix_expression:
+		expression PLUS expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_ADD, (const idl_expr_t *) $3);
+		}
+	|	expression MINUS expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_SUB, (const idl_expr_t *) $3);
+		}
+	|	expression SLASH expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_DIV, (const idl_expr_t *) $3);
+		}
+	|	expression STAR expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_MUL, (const idl_expr_t *) $3);
+		}
+	|	expression PERCENT expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_MOD, (const idl_expr_t *) $3);
+		}
+	|	expression CARET expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_XOR, (const idl_expr_t *) $3);
+		}
+	|	expression LANGLEANGLE expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_LSHIFT, (const idl_expr_t *) $3);
+		}
+	|	expression RANGLEANGLE expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_RSHIFT, (const idl_expr_t *) $3);
+		}
+	|	expression AMP expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_BITAND, (const idl_expr_t *) $3);
+		}
+	|	expression AMPAMP expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_AND, (const idl_expr_t *) $3);
+		}
+	|	expression BAR expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_BITOR, (const idl_expr_t *) $3);
+		}
+	|	expression BARBAR expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_OR, (const idl_expr_t *) $3);
+		}
+	|	expression NOTEQUAL expression
+		{
+			$$ = (char *) idl_expr_create_pair((const idl_expr_t *) $1, EXPR_NOTEQUALS, (const idl_expr_t *) $3);
+		}
 	;
