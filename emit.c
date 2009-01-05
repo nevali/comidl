@@ -122,12 +122,12 @@ idl_emit_cxxinc_write_header(idl_module_t *module)
 	{
 		if(MODE_RPC == module->mode)
 		{
-				fprintf(module->hout, "\n# include \"DCE-RPC/idlbase.h\"\n");
-				if(0 == nodefimports && 0 == module->nodefimports)
-				{
-					/* This corresponds to the default import of nbase.idl */
-					fprintf(module->hout, "# include \"DCE-RPC/nbase.h\"\n");
-				}
+			fprintf(module->hout, "\n# include \"DCE-RPC/idlbase.h\"\n");
+			if(0 == nodefimports && 0 == module->nodefimports)
+			{
+				/* This corresponds to the default import of nbase.idl */
+				fprintf(module->hout, "# include \"DCE-RPC/nbase.h\"\n");
+			}
 		}
 		else if(MODE_COM == module->mode)
 		{
@@ -135,8 +135,22 @@ idl_emit_cxxinc_write_header(idl_module_t *module)
 		}
 		else if(MODE_MSCOM == module->mode)
 		{
-			fprintf(module->hout, "\n#include <rpc.h>\n");
-			fprintf(module->hout, "\n#include <rpcndr.h>\n");
+			fprintf(module->hout, "\n# include <rpc.h>\n");
+			fprintf(module->hout, "\n# include <rpcndr.h>\n");
+		}
+		else if(MODE_DCERPC == module->mode)
+		{
+			fprintf(module->hout, "\n# include <nbase.h>\n");
+		}
+		else if(MODE_SUNRPC == module->mode)
+		{
+			fprintf(module->hout, "\n# include <rpc/rpc.h>\n");
+		}
+		else if(MODE_XPCOM == module->mode)
+		{
+			fprintf(module->hout, "\n# ifndef NS_NO_VTABLE\n");
+			fprintf(module->hout, "#  define NS_NO_VTABLE\n");
+			fprintf(module->hout, "# endif\n");
 		}
 	}
 	fputc('\n', module->hout);
@@ -148,20 +162,23 @@ idl_emit_cxxinc_write_footer(idl_module_t *module)
 	size_t c;
 	
 	fprintf(module->hout, "\n#endif /*!%s*/\n", module->hmacro);
-	for(c = 0; c < module->nguids; c++)
+	if(MODE_RPC == module->mode || MODE_COM == module->mode || MODE_MSCOM == module->mode)
 	{
-		fprintf(module->hout, "\n/* %s = {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x} */\n",
-			module->guids[c]->name,
-			module->guids[c]->data1, module->guids[c]->data2, module->guids[c]->data3,
-			module->guids[c]->data4[0], module->guids[c]->data4[1],
-			module->guids[c]->data4[2], module->guids[c]->data4[3], module->guids[c]->data4[4],
-			module->guids[c]->data4[5], module->guids[c]->data4[6], module->guids[c]->data4[7]);
-		fprintf(module->hout, "DEFINE_GUID(%s, 0x%08X, 0x%04X, 0x%04X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X);\n",
-			module->guids[c]->name,
-			module->guids[c]->data1, module->guids[c]->data2, module->guids[c]->data3,
-			module->guids[c]->data4[0], module->guids[c]->data4[1],
-			module->guids[c]->data4[2], module->guids[c]->data4[3], module->guids[c]->data4[4],
-			module->guids[c]->data4[5], module->guids[c]->data4[6], module->guids[c]->data4[7]);
+		for(c = 0; c < module->nguids; c++)
+		{
+			fprintf(module->hout, "\n/* %s = {%08x-%04x-%04x-%02x%02x-%02x%02x%02x%02x%02x%02x} */\n",
+				module->guids[c]->name,
+				module->guids[c]->data1, module->guids[c]->data2, module->guids[c]->data3,
+				module->guids[c]->data4[0], module->guids[c]->data4[1],
+				module->guids[c]->data4[2], module->guids[c]->data4[3], module->guids[c]->data4[4],
+				module->guids[c]->data4[5], module->guids[c]->data4[6], module->guids[c]->data4[7]);
+			fprintf(module->hout, "DEFINE_GUID(%s, 0x%08X, 0x%04X, 0x%04X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X);\n",
+				module->guids[c]->name,
+				module->guids[c]->data1, module->guids[c]->data2, module->guids[c]->data3,
+				module->guids[c]->data4[0], module->guids[c]->data4[1],
+				module->guids[c]->data4[2], module->guids[c]->data4[3], module->guids[c]->data4[4],
+				module->guids[c]->data4[5], module->guids[c]->data4[6], module->guids[c]->data4[7]);
+		}
 	}
 }
 
@@ -615,17 +632,25 @@ idl_emit_intf_prologue(idl_module_t *module, idl_interface_t *intf)
 		major = (unsigned int) (intf->version >> 16);
 		minor = (unsigned int) (intf->version & 0xFFFF);
 		fprintf(f, "/* %s version %u.%u */\n", intf->name, major, minor);
-		fprintf(f, "# ifndef %s_v%u_%u_defined_\n", intf->name, major, minor);
-		fprintf(f, "#  define %s_v%u_%u_defined_\n", intf->name, major, minor);
-		fprintf(f, "#  undef RPC_EXPORTS\n");
-		fprintf(f, "#  ifdef RPC_EXPORT_%s_v%d_%d\n", intf->name, major, minor);
-		fprintf(f, "#   define RPC_EXPORTS\n");
-		fprintf(f, "#  endif\n");
-		fprintf(f, "#  include \"DCE-RPC/decl.h\"\n\n");
-		if(BLOCK_INTERFACE == intf->type && intf->object)
+		if(MODE_RPC == module->mode || MODE_COM == module->mode)
 		{
-			fprintf(f, "#  undef INTERFACE\n", intf->name);
-			fprintf(f, "#  define INTERFACE %s\n", intf->name);
+			fprintf(f, "# ifndef %s_v%u_%u_defined_\n", intf->name, major, minor);
+			fprintf(f, "#  define %s_v%u_%u_defined_\n", intf->name, major, minor);
+			fprintf(f, "#  undef RPC_EXPORTS\n");
+			fprintf(f, "#  ifdef RPC_EXPORT_%s_v%d_%d\n", intf->name, major, minor);
+			fprintf(f, "#   define RPC_EXPORTS\n");
+			fprintf(f, "#  endif\n");
+			fprintf(f, "#  include \"DCE-RPC/decl.h\"\n\n");
+			if(BLOCK_INTERFACE == intf->type && intf->object)
+			{
+				fprintf(f, "#  undef INTERFACE\n");
+				fprintf(f, "#  define INTERFACE %s\n", intf->name);
+			}
+		}
+		if(MODE_MSCOM == module->mode)
+		{
+			fprintf(f, "# ifndef __%s_INTERFACE_DEFINED__", intf->name);
+			fprintf(f, "# define __%s_INTERFACE_DEFINED__", intf->name);
 		}
 	}
 	return 0;
@@ -647,22 +672,25 @@ idl_emit_intf_epilogue(idl_module_t *module, idl_interface_t *intf)
 		fputc('\n', f);
 		if(1 == intf->local && 0 == intf->object)
 		{
-			first = 1;
-			for(c = 0; c < intf->symlist.ndefs; c++)
+			if(MODE_RPC == module->mode || MODE_COM == module->mode)
 			{
-				if(SYM_METHOD == intf->symlist.defs[c]->type)
+				first = 1;
+				for(c = 0; c < intf->symlist.ndefs; c++)
 				{
-					if(first)
+					if(SYM_METHOD == intf->symlist.defs[c]->type)
 					{
-						fprintf(f, "#  ifdef RPC_ALIAS_MACROS\n");
-						first = 0;
+						if(first)
+						{
+							fprintf(f, "#  ifdef RPC_ALIAS_MACROS\n");
+							first = 0;
+						}
+						fprintf(f, "#   define %s RPC_LOCAL_SYM(%s)\n", intf->symlist.defs[c]->ident, intf->symlist.defs[c]->ident);
 					}
-					fprintf(f, "#   define %s RPC_LOCAL_SYM(%s)\n", intf->symlist.defs[c]->ident, intf->symlist.defs[c]->ident);
 				}
-			}
-			if(0 == first)
-			{
-				fprintf(f, "#  endif /*RPC_ALIAS_MACROS*/\n");
+				if(0 == first)
+				{
+					fprintf(f, "#  endif /*RPC_ALIAS_MACROS*/\n");
+				}
 			}
 		}
 		else if(1 == intf->object)
@@ -687,13 +715,25 @@ idl_emit_intf_epilogue(idl_module_t *module, idl_interface_t *intf)
 			fprintf(f, "};\n\n");
 			idl_emit_cxxinc_write_method_macros(module, f, intf, intf, 0);
 		}
-
-		fprintf(f, "\n#  undef RPC_EXPORTS\n");
-		if(BLOCK_INTERFACE == intf->type && intf->object)
+		if(MODE_RPC == module->mode || MODE_COM == module->mode)
 		{
-			fprintf(f, "#  undef INTERFACE\n");
+			fprintf(f, "\n#  undef RPC_EXPORTS\n");
 		}
-		fprintf(f, "# endif /*!%s_v%u_%u_defined_*/\n\n", intf->name, major, minor);
+		if(MODE_RPC == module->mode || MODE_COM == module->mode || MODE_MSCOM == module->mode)
+		{
+			if(BLOCK_INTERFACE == intf->type && intf->object)
+			{
+				fprintf(f, "#  undef INTERFACE\n");
+			}
+		}
+		if(MODE_RPC == module->mode || MODE_COM == module->mode)
+		{
+			fprintf(f, "# endif /*!%s_v%u_%u_defined_*/\n\n", intf->name, major, minor);
+		}
+		else if(MODE_MSCOM == module->mode)
+		{
+			fprintf(f, "# endif /*!__%s_INTERFACE_DEFINED__*/\n\n", intf->name);
+		}
 	}
 	return 0;
 }
