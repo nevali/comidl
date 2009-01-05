@@ -624,6 +624,7 @@ idl_emit_intf_prologue(idl_module_t *module, idl_interface_t *intf)
 		fprintf(f, "#  include \"DCE-RPC/decl.h\"\n\n");
 		if(BLOCK_INTERFACE == intf->type && intf->object)
 		{
+			fprintf(f, "#  undef INTERFACE\n", intf->name);
 			fprintf(f, "#  define INTERFACE %s\n", intf->name);
 		}
 	}
