@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (c) 2008 Mo McRoberts.
+ * Copyright (c) 2008, 2009 Mo McRoberts.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,11 +65,6 @@ extern int getopt(int argc, char * const argv[], const char *options);
 # endif
 
 #include "idlparse.h"
-
-extern const char *progname;
-extern int nostdinc;
-extern int nodefimports;
-extern int nodefinc;
 
 typedef char idl_ident_t[64];
 
@@ -263,6 +258,11 @@ struct idl_typedecl_struct
 };
 
 extern idl_module_t *curmod;
+extern const char *progname;
+extern int nostdinc;
+extern int nodefimports;
+extern int nodefinc;
+extern idl_mode_t defmode;
 
 # define YY_DECL int yylex(YYSTYPE *yylval_param, void *yyscanner)
 extern YY_DECL;
@@ -274,6 +274,7 @@ extern void yyrestart(FILE *f, void *scanner);
 extern char *yyget_text (void *yyscanner);
 extern int yyget_lineno (void *yyscanner);
 
+extern idl_mode_t idl_mode_parse(const char *modestr);
 extern int idl_parse(const char *src, const char *hout, int defimp, int useinc);
 
 extern int idl_keyword_lookup(const char *s);

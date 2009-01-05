@@ -53,7 +53,7 @@ idl_emit_begin(idl_module_t *module)
 {
 	if(MODE_UNSPEC == module->mode)
 	{
-		module->mode = MODE_COM;
+		module->mode = defmode;
 	}
 	return 0;
 }

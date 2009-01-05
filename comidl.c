@@ -43,6 +43,7 @@ idl_module_t *curmod;
 
 int nodefimports = 0;
 int nodefinc = 0;
+idl_mode_t defmode = MODE_UNSPEC;
 
 static void
 usage(void)
@@ -60,7 +61,15 @@ usage(void)
 		"  -Wp,OPTIONS              Pass OPTIONS to the C preprocessor\n"
 		"  -v                       Display version information and exit\n"
 		"  -h                       Display this message and exit\n"
-		"  -X LANGUAGE              Output for LANGUAGE [default=C]\n",
+		"  -X LANGUAGE              Output for LANGUAGE [default=C]\n"
+		"  -M MODE                  Specify default output mode: [default=com]\n"
+		"    com                      libCOM\n"
+		"    rpc                      libDCE-RPC\n"
+		"    mscom                    Microsoft COM/ReactOS/WINE\n"
+		"    dcerpc                   DCE RPC/FreeDCE\n"
+		"    sunrpc                   Sun ONC RPC\n"
+		"    xpcom                    Mozilla XPCOM\n"
+		"  Note: specified mode value may be overridden within IDL\n",
 		progname);
 }
 
@@ -77,6 +86,36 @@ version(void)
 		fprintf(stderr, "Copyright (c) 1987, 1993, 1994\nThe Regents of the University of California.  All rights reserved.\n");
 	#endif
 	fprintf(stderr, "\nhttp://libcom.googlecode.com/\n");
+}
+
+idl_mode_t
+idl_mode_parse(const char *modestr)
+{
+	if(0 == strcmp(modestr, "com"))
+	{
+		return MODE_COM;
+	}
+	if(0 == strcmp(modestr, "rpc"))
+	{
+		return MODE_RPC;
+	}
+	if(0 == strcmp(modestr, "mscom"))
+	{
+		return MODE_MSCOM;
+	}
+	if(0 == strcmp(modestr, "dcerpc"))
+	{
+		return MODE_DCERPC;
+	}
+	if(0 == strcmp(modestr, "sunrpc") || 0 == strcmp(modestr, "oncrpc"))
+	{
+		return MODE_SUNRPC;
+	}
+	if(0 == strcmp(modestr, "xpcom"))
+	{
+		return MODE_XPCOM;
+	}
+	return MODE_UNSPEC;
 }
 
 int
@@ -178,6 +217,7 @@ main(int argc, char **argv)
 	const char *srcfile, *intfheader, *t;
 	char *ih, *s;
 	int defaults, c;
+	idl_mode_t mode;
 	
 	if(NULL != argv[0])
 	{
@@ -192,7 +232,7 @@ main(int argc, char **argv)
 	srcfile = NULL;
 	intfheader = NULL;
 	defaults = 1;
-	while((c = getopt(argc, argv, "H:P:S:I:F:n:W:X:hv")) != -1)
+	while((c = getopt(argc, argv, "H:P:S:I:F:n:W:X:M:hv")) != -1)
 	{
 		switch(c)
 		{
@@ -225,6 +265,20 @@ main(int argc, char **argv)
 					usage();
 					exit(EXIT_FAILURE);
 				}
+				break;
+			case 'M':
+				if(MODE_UNSPEC == (mode = idl_mode_parse(optarg)))
+				{
+					fprintf(stderr, "%s: invalid mode -- %s\n", progname, optarg);
+					usage();
+					exit(EXIT_FAILURE);
+				}
+				if(defmode != MODE_UNSPEC && defmode != mode)
+				{
+					fprintf(stderr, "%s: output mode cannot be specified more than once\n", progname);
+					exit(EXIT_FAILURE);
+				}
+				defmode = mode;
 				break;
 			case 'h':
 				usage();
@@ -278,6 +332,10 @@ main(int argc, char **argv)
 			strcat(ih, ".h");
 		}
 		intfheader = ih;
+	}
+	if(MODE_UNSPEC == defmode)
+	{
+		defmode = MODE_COM;
 	}
 /*	idl_incpath_addincludedir("/usr/include");
 	idl_incpath_addframeworkdir("/System/Library/Frameworks");

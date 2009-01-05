@@ -449,31 +449,8 @@ idl_module_set_mode(idl_module_t *module, int line, const char *modestr)
 {
 	idl_mode_t mode;
 	
-	if(!strcmp(modestr, "com"))
-	{
-		mode = MODE_COM;
-	}
-	else if(!strcmp(modestr, "rpc"))
-	{
-		mode = MODE_RPC;
-	}
-	else if(!strcmp(modestr, "mscom"))
-	{
-		mode = MODE_MSCOM;
-	}
-	else if(!strcmp(modestr, "dcerpc"))
-	{
-		mode = MODE_DCERPC;
-	}
-	else if(!strcmp(modestr, "sunrpc"))
-	{
-		mode = MODE_SUNRPC;
-	}
-	else if(!strcmp(modestr, "xpcom"))
-	{
-		mode = MODE_XPCOM;
-	}
-	else
+	mode = idl_mode_parse(modestr);
+	if(MODE_UNSPEC == mode)
 	{
 		idl_module_errmsg(module, line, "unrecognised mode attribute value '%s'", modestr);
 		idl_module_error(module, line, "applicable values: rpc, com, mscom, dcerpc, sunrpc, xpcom");
