@@ -50,6 +50,12 @@ idl_intf_create(idl_module_t *module)
 	return p;
 }
 
+idl_interface_t *
+idl_intf_lookup(const char *name)
+{
+	return idl_module_lookupintf(name);
+}
+
 int
 idl_intf_done(idl_interface_t *intf)
 {
@@ -61,6 +67,8 @@ idl_intf_started(idl_interface_t *intf)
 {
 	uint8_t nulldata[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 	int hasuuid, needuuid;
+	idl_typedecl_t *typedecl;
+	idl_symdef_t *sym;
 	
 	if(intf->type == BLOCK_INTERFACE)
 	{
@@ -104,6 +112,13 @@ idl_intf_started(idl_interface_t *intf)
 	{
 		idl_module_addguid(intf->module, &(intf->uuid));
 	}
+	typedecl = idl_module_typedecl_push(intf->module);
+	typedecl->builtin_type = TYPE_INTERFACE;
+	sym = idl_module_symdef_create(intf->module, &(intf->symlist), typedecl);
+	sym->type = SYM_TYPEDEF;
+	strcpy(sym->ident, intf->name);
+	idl_module_symdef_add(intf->module, &(intf->symlist), sym);
+	idl_module_typedecl_pop(intf->module);
 	idl_emit_intf_prologue(intf->module, intf);
 	return 0;
 }
@@ -194,6 +209,52 @@ idl_intf_symlist_pop(idl_interface_t *intf, idl_symlist_t *symlist)
 {
 	idl_module_symlist_pop(intf->module, symlist);
 	intf->cursymlist = intf->module->cursymlist;
+	return 0;
+}
+
+int
+idl_intf_method_exists(idl_interface_t *intf, const char *methodname)
+{
+	size_t c;
+	
+	for(c = 0; c < intf->symlist.ndefs; c++)
+	{
+		if(SYM_METHOD == intf->symlist.defs[c]->type)
+		{
+			if(0 == strcmp(intf->symlist.defs[c]->ident, methodname))
+			{
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+int
+idl_intf_method_exists_recurse(idl_interface_t *intf, const char *methodname)
+{
+	if(1 == idl_intf_method_exists(intf, methodname))
+	{
+		return 1;
+	}
+	if(NULL == intf->ancestor)
+	{
+		return 0;
+	}
+	return idl_intf_method_exists_recurse(intf->ancestor, methodname);
+}
+
+int
+idl_intf_method_inherited(idl_interface_t *intf, const char *methodname)
+{
+	if(NULL == intf->ancestor)
+	{
+		return 0;
+	}
+	if(1 == idl_intf_method_exists_recurse(intf->ancestor, methodname))
+	{
+		return 1;
+	}
 	return 0;
 }
 

@@ -45,7 +45,7 @@ static void idl_emit_cxxinc_write_footer(idl_module_t *module);
 static void idl_emit_cxxinc_write_indent(idl_module_t *module);
 
 static void idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl);
-static void idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt);
+static void idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt, const char *paramprefix, const char *voidstr);
 static int idl_emit_write_sym(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt);
 
 static int
@@ -133,6 +133,11 @@ idl_emit_cxxinc_write_header(idl_module_t *module)
 		{
 			fprintf(module->hout, "\n# include \"COM/COM.h\"\n");
 		}
+		else if(MODE_MSCOM == module->mode)
+		{
+			fprintf(module->hout, "\n#include <rpc.h>\n");
+			fprintf(module->hout, "\n#include <rpcndr.h>\n");
+		}
 	}
 	fputc('\n', module->hout);
 }
@@ -142,11 +147,6 @@ idl_emit_cxxinc_write_footer(idl_module_t *module)
 {
 	size_t c;
 	
-/*	fprintf(module->hout, "\n"
-		"# if defined(__cplusplus)\n"
-		"}\n"
-		"# endif\n\n"
-		); */
 	fprintf(module->hout, "\n#endif /*!%s*/\n", module->hmacro);
 	for(c = 0; c < module->nguids; c++)
 	{
@@ -156,7 +156,7 @@ idl_emit_cxxinc_write_footer(idl_module_t *module)
 			module->guids[c]->data4[0], module->guids[c]->data4[1],
 			module->guids[c]->data4[2], module->guids[c]->data4[3], module->guids[c]->data4[4],
 			module->guids[c]->data4[5], module->guids[c]->data4[6], module->guids[c]->data4[7]);
-		fprintf(module->hout, "DEFINE_GUID(%s, 0x%08x, 0x%04x, 0x%04x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x);\n",
+		fprintf(module->hout, "DEFINE_GUID(%s, 0x%08X, 0x%04X, 0x%04X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X, 0x%02X);\n",
 			module->guids[c]->name,
 			module->guids[c]->data1, module->guids[c]->data2, module->guids[c]->data3,
 			module->guids[c]->data4[0], module->guids[c]->data4[1],
@@ -174,6 +174,93 @@ idl_emit_cxxinc_write_indent(idl_module_t *module)
 	{
 		fputc('\t', module->hout);
 	}
+}
+
+static void
+idl_emit_cxxinc_write_methods(idl_module_t *module, FILE *f, idl_interface_t *intf)
+{
+	size_t c;
+	int stdmethod;
+	
+	if(NULL != intf->ancestor)
+	{
+		idl_emit_cxxinc_write_methods(module, f, intf->ancestor);
+		fputc('\n', f);
+	}
+	idl_emit_cxxinc_write_indent(module);
+	fprintf(f, "/* %s */\n", intf->name);
+	for(c = 0; c < intf->symlist.ndefs; c++)
+	{
+		if(1 == idl_intf_method_inherited(intf, intf->symlist.defs[c]->ident))
+		{
+			continue;
+		}
+		if(SYM_METHOD == intf->symlist.defs[c]->type)
+		{
+			stdmethod = 0;
+			if(NULL != intf->symlist.defs[c]->decl &&
+				NULL != intf->symlist.defs[c]->decl->user_type &&
+				0 == strcmp(intf->symlist.defs[c]->decl->user_type->ident, "com_result_t"))
+			{
+				stdmethod = 1;
+			}
+			idl_emit_cxxinc_write_indent(module);
+			if(stdmethod)
+			{
+				idl_emit_write_symdef(module, module->hout, intf->symlist.defs[c], "STDMETHOD(%s)", "THIS_ ", "THIS");
+			}
+			else
+			{
+				fprintf(f, "STDMETHOD_(");
+				idl_emit_write_type(module, f, intf->symlist.defs[c]->decl);
+				idl_emit_write_symdef(module, module->hout, intf->symlist.defs[c], ", %s)", "THIS_ ", "THIS");
+			}
+			fprintf(f, " PURE;\n");
+		}
+	}
+}
+
+static int
+idl_emit_cxxinc_write_method_macros(idl_module_t *module, FILE *f, idl_interface_t *curintf, idl_interface_t *intf, int written)
+{
+	size_t c, d;
+	
+	if(NULL != intf->ancestor)
+	{
+		written += idl_emit_cxxinc_write_method_macros(module, f, curintf, intf->ancestor, written);
+	}
+	for(c = 0; c < intf->symlist.ndefs; c++)
+	{
+		if(SYM_METHOD == intf->symlist.defs[c]->type)
+		{
+			if(1 == idl_intf_method_inherited(intf, intf->symlist.defs[c]->ident))
+			{
+				continue;
+			}
+			if(0 == written)
+			{
+				fprintf(f, "#  if defined(COM_CINTERFACE) || !defined(__cplusplus)\n");
+				written = 1;
+			}
+			fprintf(f, "#   define %s_%s(__this", curintf->name, intf->symlist.defs[c]->ident);
+			for(d = 0; d < intf->symlist.defs[c]->fp_params.ndefs; d++)
+			{
+				fprintf(f, ", %s", intf->symlist.defs[c]->fp_params.defs[d]->ident);
+			}
+			fprintf(f, ") __this->lpVtbl->%s(__this", intf->symlist.defs[c]->ident);
+			for(d = 0; d < intf->symlist.defs[c]->fp_params.ndefs; d++)
+			{
+				fprintf(f, ", %s", intf->symlist.defs[c]->fp_params.defs[d]->ident);
+			}
+			fputc(')', f);
+			fputc('\n', f);
+		}
+	}
+	if(0 != written && curintf == intf)
+	{
+		fprintf(f, "#  endif /*COM_CINTERFACE || !__cplusplus*/\n");
+	}
+	return written;
 }
 
 static void
@@ -208,85 +295,85 @@ idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 	switch(decl->builtin_type)
 	{
 		case TYPE_VOID:
-			fprintf(f, "void ");
+			fprintf(f, "void");
 			break;
 		case TYPE_CHAR:
-			fprintf(f, "char ");
+			fprintf(f, "char");
 			break;
 		case TYPE_INT:
-			fprintf(f, "int ");
+			fprintf(f, "int");
 			break;
 		case TYPE_LONG:
-			fprintf(f, "long ");
+			fprintf(f, "long");
 			break;
 		case TYPE_LONGLONG:
-			fprintf(f, "long long ");
+			fprintf(f, "long long");
 			break;
 		case TYPE_SHORT:
-			fprintf(f, "short ");
+			fprintf(f, "short");
 			break;
 		case TYPE_FLOAT:
-			fprintf(f, "float ");
+			fprintf(f, "float");
 			break;
 		case TYPE_DOUBLE:
-			fprintf(f, "double ");
+			fprintf(f, "double");
 			break;
 		case TYPE_BOOLEAN:
-			fprintf(f, "uint8_t ");
+			fprintf(f, "uint8_t");
 			break;
 		case TYPE_STRUCT:
-			fprintf(f, "struct %s ", decl->tag);
+			fprintf(f, "struct %s", decl->tag);
 			break;
 		case TYPE_UNION:
-			fprintf(f, "union %s ", decl->tag);
+			fprintf(f, "union %s", decl->tag);
 			break;
 		case TYPE_ENUM:
-			fprintf(f, "enum %s ", decl->tag);
+			fprintf(f, "enum %s", decl->tag);
 			break;
 		case TYPE_INTERFACE:
-			fprintf(f, "cominterface %s ", decl->tag);
+			fprintf(f, "cominterface %s", decl->tag);
 			break;
 		case TYPE_DEF:
-			fprintf(f, "%s ", decl->user_type->ident);
+			fprintf(f, "%s", decl->user_type->ident);
 			break;
 		case TYPE_INT8:
 			if(decl->modifiers & TYPEMOD_UNSIGNED)
 			{
-				fprintf(f, "uint8_t ");
+				fprintf(f, "uint8_t");
 			}
 			else
 			{
-				fprintf(f, "int8_t ");
+				fprintf(f, "int8_t");
 			}
 			break;
 		case TYPE_INT16:
 			if(decl->modifiers & TYPEMOD_UNSIGNED)
 			{
-				fprintf(f, "uint16_t ");
+				fprintf(f, "uint16_t");
 			}
 			else
 			{
-				fprintf(f, "int16_t ");
+				fprintf(f, "int16_t");
 			}
 			break;
 		case TYPE_INT32:
 			if(decl->modifiers & TYPEMOD_UNSIGNED)
 			{
-				fprintf(f, "uint32_t ");
+				fprintf(f, "uint32_t");
 			}
 			else
 			{
-				fprintf(f, "int32_t ");
+				fprintf(f, "int32_t");
 			}
 			break;
 		case TYPE_INT64:
 			if(decl->modifiers & TYPEMOD_UNSIGNED)
 			{
-				fprintf(f, "uint64_t ");
+				fprintf(f, "uint64_t");
 			}
 			else
 			{
-				fprintf(f, "int64_t ");
+				fprintf(f, "int64_t");
 			}
 			break;
 		default:
@@ -324,12 +411,20 @@ idl_emit_write_type(idl_module_t *module, FILE *f, idl_typedecl_t *decl)
 }
 
 static void
-idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt)
+idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const char *fmt, const char *paramprefix, const char *voidstr)
 {
 	size_t c;
 
 	(void) module;
 	
+	if(NULL == paramprefix)
+	{
+		paramprefix = "";
+	}
+	if(NULL == voidstr)
+	{
+		voidstr = "void";
+	}
 	if(SYM_ENUM == symdef->type)
 	{
 		/* enum values are handled slightly differently */
@@ -377,11 +472,11 @@ idl_emit_write_symdef(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const
 	{
 		if(0 == symdef->fp_params.ndefs)
 		{
-			fprintf(f, "(void)");
+			fprintf(f, "(%s)", voidstr);
 		}
 		else
 		{
-			fputc('(', f);
+			fprintf(f, "(%s", paramprefix);
 			for(c = 0; c < symdef->fp_params.ndefs; c++)
 			{
 				/* We never chain in a list of function parameters */
@@ -423,6 +518,7 @@ idl_emit_write_sym(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const ch
 	}
 	c = 0;
 	idl_emit_write_type(module, f, symdef->decl);
+	fputc(' ', f);
 	for(p = symdef; p; p = p->nextsym)
 	{
 		if(p != symdef)
@@ -430,7 +526,7 @@ idl_emit_write_sym(idl_module_t *module, FILE *f, idl_symdef_t *symdef, const ch
 			fputc(',', module->hout);
 			fputc(' ', module->hout);
 		}
-		idl_emit_write_symdef(module, module->hout, p, fmt);
+		idl_emit_write_symdef(module, module->hout, p, fmt, NULL, NULL);
 		c++;
 	}
 	return c;
@@ -548,10 +644,6 @@ idl_emit_intf_epilogue(idl_module_t *module, idl_interface_t *intf)
 		major = (unsigned int) (intf->version >> 16);
 		minor = (unsigned int) (intf->version & 0xFFFF);
 		fputc('\n', f);
-		if(BLOCK_INTERFACE == intf->type && intf->object)
-		{
-			fprintf(f, "#  undef INTERFACE\n");
-		}
 		if(1 == intf->local && 0 == intf->object)
 		{
 			first = 1;
@@ -572,7 +664,34 @@ idl_emit_intf_epilogue(idl_module_t *module, idl_interface_t *intf)
 				fprintf(f, "#  endif /*RPC_ALIAS_MACROS*/\n");
 			}
 		}
-		fprintf(f, "#  undef RPC_EXPORTS\n");
+		else if(1 == intf->object)
+		{
+			if(NULL == intf->ancestor)
+			{
+				fprintf(f, "DECLARE_INTERFACE(%s)\n", intf->name);
+			}
+			else
+			{
+				fprintf(f, "DECLARE_INTERFACE_(%s, %s)\n", intf->name, intf->ancestor->name);
+			}
+			fprintf(f, "{\n");
+			module->houtdepth++;
+			idl_emit_cxxinc_write_indent(module);
+			fprintf(f, "BEGIN_INTERFACE\n\n");
+			idl_emit_cxxinc_write_methods(module, f, intf);
+			fputc('\n', f);
+			idl_emit_cxxinc_write_indent(module);
+			fprintf(f, "END_INTERFACE\n");
+			module->houtdepth--;
+			fprintf(f, "};\n\n");
+			idl_emit_cxxinc_write_method_macros(module, f, intf, intf, 0);
+		}
+
+		fprintf(f, "\n#  undef RPC_EXPORTS\n");
+		if(BLOCK_INTERFACE == intf->type && intf->object)
+		{
+			fprintf(f, "#  undef INTERFACE\n");
+		}
 		fprintf(f, "# endif /*!%s_v%u_%u_defined_*/\n\n", intf->name, major, minor);
 	}
 	return 0;

@@ -40,6 +40,22 @@ static idl_module_t **modules;
 static size_t nmodules;
 
 void
+idl_module_terminate(void)
+{
+	size_t c;
+	
+	for(c = 0; c < nmodules; c++)
+	{
+		if(NULL != modules[c]->hout)
+		{
+			fclose(modules[c]->hout);
+			unlink(modules[c]->houtname);
+		}
+	}
+	exit(EXIT_FAILURE);
+}
+
+void
 idl_module_vmsg(idl_module_t *module, int line, const char *prefix, const char *fmt, va_list ap)
 {
 	fprintf(stderr, "%s:%d: %s: ", module->filename, line, prefix);
@@ -66,7 +82,7 @@ idl_module_error(idl_module_t *module, int line, const char *fmt, ...)
 	va_start(ap, fmt);
 	idl_module_vmsg(module, line, "error", fmt, ap);
 	va_end(ap);
-	exit(EXIT_FAILURE);
+	idl_module_terminate();
 }
 
 void
@@ -152,13 +168,32 @@ idl_module_lookup(const char *pathname)
 	
 	for(c = 0; c < nmodules; c++)
 	{
-		if(!strcmp(modules[c]->filename, pathname))
+		if(0 == strcmp(modules[c]->filename, pathname))
 		{
 			return modules[c];
 		}
 	}
 	return NULL;
 }
+
+idl_interface_t *
+idl_module_lookupintf(const char *name)
+{
+	size_t c, d;
+	
+	for(c = 0; c < nmodules; c++)
+	{
+		for(d = 0; d < modules[c]->ninterfaces; d++)
+		{
+			if(0 == strcmp(modules[c]->interfaces[d]->name, name))
+			{
+				return modules[c]->interfaces[d];
+			}
+		}
+	}
+	return NULL;
+}
+
 
 int
 idl_module_done(idl_module_t *module)

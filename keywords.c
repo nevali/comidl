@@ -110,9 +110,9 @@ static struct idl_keyword_struct keywords[] =
 	{ "notxpcom", NOTXPCOM_KW }, /* XPCOM */
 	{ "nsid", NSID_KW }, /* XPCOM */
 	
+	{ "object", OBJECT_KW }, /* MSRPC, XPCOM */
 	{ "octet", OCTET_KW }, /* XPCOM */
 	{ "out", OUT_KW },
-	{ "object", OBJECT_KW }, /* MSRPC, XPCOM */
 	
 	{ "pipe", PIPE_KW },
 	{ "pointer_default", POINTER_DEFAULT_KW },

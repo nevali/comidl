@@ -310,14 +310,18 @@ identifier:
 	|	UUID_KW { $$ = $1; }
 	|	MODE_KW { $$ = $1; }
 	|	STRING_KW { $$ = $1; }
+	|	LOCAL_KW { $$ = $1; }
+	|	OBJECT_KW { $$ = $1; }
 	;
 
 interface_ancestor:
 		/* Nothing */
 	|	COLON identifier
 		{
-			fprintf(stderr, "interface inherits from %s\n", $2);
-			/* XXX look up ancestor */
+			if(NULL == (curmod->curintf->ancestor = idl_intf_lookup($2)))
+			{
+				idl_module_error(curmod, yyget_lineno(scanner), "cannot derive %s from undefined interface %s", curmod->curintf->name, $2);
+			}
 		}
 	;
 
@@ -501,7 +505,10 @@ import_files:
 import_file:
         STRING
         {
-			idl_parse($1, NULL, 0, 1);
+			if(-1 == idl_parse($1, NULL, 0, 1))
+			{
+				idl_module_terminate();
+			}
         }
     ;
 

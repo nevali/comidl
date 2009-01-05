@@ -80,6 +80,43 @@ version(void)
 }
 
 int
+idl_builtin_create(idl_module_t *mod, idl_interface_t *intf, const char *name, idl_builtintype_t type, idl_typemod_t mods)
+{
+	idl_typedecl_t *typedecl;
+	idl_symdef_t *sym;
+	
+	typedecl = idl_module_typedecl_push(mod);
+	typedecl->builtin_type = type;
+	typedecl->modifiers = mods;
+	sym = idl_module_symdef_create(mod, &(intf->symlist), typedecl);
+	sym->type = SYM_TYPEDEF;
+	strncpy(sym->ident, name, IDL_IDENT_MAX);
+	sym->ident[IDL_IDENT_MAX] = 0;
+	idl_module_symdef_add(mod, &(intf->symlist), sym);
+	idl_module_typedecl_pop(mod);
+	return 0;
+}
+
+int
+idl_builtin(void)
+{
+	idl_module_t *mod;
+	idl_interface_t *builtins;
+	
+	mod = idl_module_create("*Built-in*", NULL);
+	builtins = idl_intf_create(mod);
+	idl_builtin_create(mod, builtins, "int8_t", TYPE_INT8, TYPEMOD_SIGNED);
+	idl_builtin_create(mod, builtins, "int16_t", TYPE_INT16, TYPEMOD_SIGNED);
+	idl_builtin_create(mod, builtins, "int32_t", TYPE_INT32, TYPEMOD_SIGNED);
+	idl_builtin_create(mod, builtins, "int64_t", TYPE_INT64, TYPEMOD_SIGNED);
+	idl_builtin_create(mod, builtins, "uint8_t", TYPE_INT8, TYPEMOD_UNSIGNED);
+	idl_builtin_create(mod, builtins, "uint16_t", TYPE_INT16, TYPEMOD_UNSIGNED);
+	idl_builtin_create(mod, builtins, "uint32_t", TYPE_INT32, TYPEMOD_UNSIGNED);
+	idl_builtin_create(mod, builtins, "uint64_t", TYPE_INT64, TYPEMOD_UNSIGNED);
+	return 0;
+}
+
+int
 idl_parse(const char *src, const char *hout, int defimp, int useinc)
 {
 	FILE *f;
@@ -246,6 +283,7 @@ main(int argc, char **argv)
 	idl_incpath_addframeworkdir("/System/Library/Frameworks");
 	idl_incpath_addframeworkdir("/Library/Frameworks"); */
 	curmod = NULL;
+	idl_builtin();
 	if(-1 == idl_parse(srcfile, intfheader, 1, 0))
 	{
 		exit(EXIT_FAILURE);

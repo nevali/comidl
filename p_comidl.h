@@ -282,10 +282,12 @@ extern void idl_module_vmsg(idl_module_t *module, int line, const char *prefix, 
 extern void idl_module_error(idl_module_t *module, int line, const char *fmt, ...);
 extern void idl_module_errmsg(idl_module_t *module, int line, const char *fmt, ...);
 extern void idl_module_warning(idl_module_t *module, int line, const char *fmt, ...);
+extern void idl_module_terminate(void);
 
 extern idl_module_t *idl_module_create(const char *filename, const char *hout);
 extern int idl_module_done(idl_module_t *module);
 extern idl_module_t *idl_module_lookup(const char *pathname);
+extern idl_interface_t *idl_module_lookupintf(const char *name);
 extern int idl_module_addintf(idl_module_t *module, idl_interface_t *intf);
 extern int idl_module_doneintf(idl_module_t *module, idl_interface_t *intf);
 extern int idl_module_addguid(idl_module_t *module, const idl_guid_t *guid);
@@ -306,16 +308,21 @@ extern int idl_intf_uuid(idl_interface_t *intf, const char *uuid);
 extern int idl_intf_name(idl_interface_t *intf, const char *name);
 extern int idl_intf_started(idl_interface_t *intf);
 extern int idl_intf_finished(idl_interface_t *intf);
+extern idl_interface_t *idl_intf_lookup(const char *name);
 extern idl_symdef_t *idl_intf_symdef_create(idl_interface_t *intf, idl_typedecl_t *typedecl);
 extern int idl_intf_symdef_done(idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_intf_symdef_link(idl_interface_t *intf, idl_symdef_t *symdef);
 extern idl_symdef_t *idl_intf_symdef_lookup(idl_interface_t *intf, const char *name);
 extern int idl_intf_symlist_push(idl_interface_t *intf, idl_symlist_t *symlist);
 extern int idl_intf_symlist_pop(idl_interface_t *intf, idl_symlist_t *symlist);
+extern int idl_intf_method_exists(idl_interface_t *intf, const char *methodname);
+extern int idl_intf_method_exists_recurse(idl_interface_t *intf, const char *methodname);
+extern int idl_intf_method_inherited(idl_interface_t *intf, const char *methodname);
 
 extern int idl_intf_write_typedef(idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_intf_write_method(idl_interface_t *intf, idl_symdef_t *symdef);
 extern int idl_intf_write_cppquote(idl_interface_t *intf, const char *s);
+
 
 extern int idl_emit_init(idl_module_t *module);
 extern int idl_emit_done(idl_module_t *module);
