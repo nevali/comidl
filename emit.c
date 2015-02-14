@@ -729,8 +729,8 @@ idl_emit_intf_prologue(idl_module_t *module, idl_interface_t *intf)
 		}
 		if(MODE_MSCOM == module->mode)
 		{
-			fprintf(f, "# ifndef __%s_INTERFACE_DEFINED__", intf->name);
-			fprintf(f, "# define __%s_INTERFACE_DEFINED__", intf->name);
+			fprintf(f, "# ifndef __%s_INTERFACE_DEFINED__\n", intf->name);
+			fprintf(f, "# define __%s_INTERFACE_DEFINED__\n", intf->name);
 		}
 	}
 	return 0;
