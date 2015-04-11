@@ -738,7 +738,10 @@ idl_emit_intf_prologue(idl_module_t *module, idl_interface_t *intf)
 			fprintf(f, "#  ifdef RPC_EXPORT_%s_v%d_%d\n", intf->name, major, minor);
 			fprintf(f, "#   define RPC_EXPORTS\n");
 			fprintf(f, "#  endif\n");
-			fprintf(f, "#  include \"DCE-RPC/decl.h\"\n\n");
+			if(0 == nodefinc && 0 == module->nodefinc)
+			{
+				fprintf(f, "#  include \"DCE-RPC/decl.h\"\n\n");
+			}
 			if(BLOCK_INTERFACE == intf->type && intf->object)
 			{
 				fprintf(f, "#  undef INTERFACE\n");
