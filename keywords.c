@@ -106,6 +106,7 @@ static struct idl_keyword_struct keywords[] =
 	
 	{ "NULL", NULL_KW },
 	{ "native", NATIVE_KW }, /* XPCOM */
+	{ "nodefinc", NODEFINC_KW }, /* comidl */
 	{ "noscript", NOSCRIPT_KW }, /* XPCOM */
 	{ "notxpcom", NOTXPCOM_KW }, /* XPCOM */
 	{ "nsid", NSID_KW }, /* XPCOM */

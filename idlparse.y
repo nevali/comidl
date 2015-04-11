@@ -167,6 +167,7 @@ yyerror(void *scanner, char *s)
 
 %token NULL_KW
 %token NATIVE_KW
+%token NODEFINC_KW
 %token NOSCRIPT_KW
 %token NOTXPCOM_KW
 %token NSID_KW
@@ -309,6 +310,7 @@ identifier:
 		IDENTIFIER { $$ = $1; }
 	|	UUID_KW { $$ = $1; }
 	|	MODE_KW { $$ = $1; }
+    |   NODEFINC_KW { $$ = $1; }
 	|	STRING_KW { $$ = $1; }
 	|	LOCAL_KW { $$ = $1; }
 	|	OBJECT_KW { $$ = $1; }
@@ -417,6 +419,10 @@ interface_attr:
 		{
 			idl_module_set_mode(curmod, yyget_lineno(scanner), $3);
 		}
+    |   NODEFINC_KW
+        {
+        	curmod->nodefinc = 1;
+        }
     ;
 
 pointer_class:
