@@ -241,7 +241,11 @@ static int
 idl_emit_cxxinc_write_method_macros(idl_module_t *module, FILE *f, idl_interface_t *curintf, idl_interface_t *intf, int written)
 {
 	size_t c, d;
-	
+
+	if(MODE_XPCOM == module->mode)
+	{
+		return 0;
+	}
 	if(NULL != intf->ancestor)
 	{
 		written += idl_emit_cxxinc_write_method_macros(module, f, curintf, intf->ancestor, written);
