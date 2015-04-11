@@ -200,8 +200,8 @@ idl_parse(const char *src, const char *hout, int defimp, int useinc)
 	}
 	lastmod = curmod;
 	curmod = idl_module_create(fpath, hout);
-	curmod->scanner = scanner;
 	yylex_init(&scanner);
+	curmod->scanner = scanner;
 	yyrestart(f, scanner);
 	yyparse(scanner);
 	fclose(f);
