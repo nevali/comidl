@@ -260,7 +260,14 @@ idl_emit_cxxinc_write_method_macros(idl_module_t *module, FILE *f, idl_interface
 			}
 			if(0 == written)
 			{
-				fprintf(f, "#  if defined(COM_CINTERFACE) || !defined(__cplusplus)\n");
+				if(MODE_MSCOM == module->mode)
+				{
+					fprintf(f, "#  if defined(CINTERFACE) || !defined(__cplusplus)\n");
+				}
+				else
+				{
+					fprintf(f, "#  if defined(COM_CINTERFACE) || !defined(__cplusplus)\n");
+				}
 				written = 1;
 			}
 			fprintf(f, "#   define %s_%s(__this", curintf->name, intf->symlist.defs[c]->ident);
@@ -279,7 +286,14 @@ idl_emit_cxxinc_write_method_macros(idl_module_t *module, FILE *f, idl_interface
 	}
 	if(0 != written && curintf == intf)
 	{
-		fprintf(f, "#  endif /*COM_CINTERFACE || !__cplusplus*/\n");
+		if(MODE_MSCOM == module->mode)
+		{
+			fprintf(f, "#  endif /*CINTERFACE || !__cplusplus*/\n");
+		}
+		else
+		{
+			fprintf(f, "#  endif /*COM_CINTERFACE || !__cplusplus*/\n");
+		}
 	}
 	return written;
 }
